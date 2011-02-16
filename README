@@ -1,0 +1,37 @@
+RFuseFS README
+============
+
+    RFuseFS is a port of the FuseFS library aimed at allowing Ruby programmers to
+  quickly and easily create virtual filesystems with little more than a few lines
+  of code.
+  
+    A "hello world" file system equivalent to the one demonstrated on
+  fuse.sourceforge.org is just 20 lines of code!
+
+    RFuseFS is api compatible with the original FuseFS (0.7.0) but is implemented
+  itself in Ruby using the Fuse bindings provided by rfuse_ng
+
+Requirements
+------------
+
+  * FUSE (http://fuse.sourceforge.org)
+  * Ruby (>= 1.8)
+  * rfuse_ng (>= 0.5.0)
+
+Install
+-------
+
+	gem install rfusefs
+
+Usage
+-----
+
+  Some sample ruby filesystems are listed in "sample/"
+
+  Also, check the API.txt file for more use.
+
+License
+-------
+
+  MIT license, in file "LICENSE"
+

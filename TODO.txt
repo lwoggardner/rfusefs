@@ -1,0 +1,9 @@
+
+
+API incompatibilities
+
+No option in FuseFS for fuse library opts
+
+Signal.trap in FuseFS can be used to shutdown the filesystem because it processes fuse commands using a Ruby loop with IO.select() on the fuse channel descriptor.
+SOLN: patch rfuse_ng to allow this type of loop (or make it default?)
+
