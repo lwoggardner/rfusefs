@@ -1,5 +1,3 @@
-#!/usr/bin/ruby
-
 # RFuseFS - FuseFS over RFuse
 require 'rfuse_ng'
 require 'fcntl'
@@ -401,27 +399,29 @@ module FuseFS
     def flush(path,ffi)
       fh = ffi.fh
       
-      if fh.raw
-        if (FuseFS::RFUSEFS_COMPATIBILITY)
-          @root.raw_close(path,fh.raw)
-        else
-          @root.raw_close(path)
-        end
-      elsif fh.modified?
+      if !fh.raw && fh.modified?
         #write contents to the file and mark it unmodified
         @root.write_to(path,fh.flush())
+        #if it was created with mknod it now exists in the filesystem...
+        @created_files.delete(path)
       end
       
-      #if file was created with mknod it now exists in the filesystem so we don't need to
-      #keep track of it anymore
-      @created_files.delete(path)
     end
-    
+
     def release(path,ffi)
+    	
       flush(path,ffi)
+      
+      fh = ffi.fh
+      if fh.raw
+		  if (FuseFS::RFUSEFS_COMPATIBILITY)
+			  @root.raw_close(path,fh.raw)
+		  else
+			  @root.raw_close(path)
+		  end
+	  end
+    
     end
-    
-    
     
     #def chmod(path,mode)
     #end

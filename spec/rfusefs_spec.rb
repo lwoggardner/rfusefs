@@ -254,9 +254,56 @@ describe FuseFS do
    		
     	end
     	
+    	it "should do sensible things for files opened RDWR"
+    	
     end
-    context "raw reading"
-    context "raw writing"
+    
+    context "raw reading" do
+    	it "should call the raw_read/raw_close if raw_open returns true" do
+			ffi = Struct::FuseFileInfo.new()
+			ffi.flags = Fcntl::O_RDONLY 
+			@mock_fuse.stub!(:can_write?).with(TEST_FILE).and_return(true)
+			@mock_fuse.should_receive(:raw_open).with(TEST_FILE,"r",true).and_return("raw")
+			@mock_fuse.should_receive(:raw_read).with(TEST_FILE,5,0,"raw").and_return("12345")
+			@mock_fuse.should_receive(:raw_read).with(TEST_FILE,5,5,"raw").and_return("67890")
+			@mock_fuse.should_receive(:raw_close).with(TEST_FILE,"raw")
+			@fuse.open(TEST_FILE,ffi)
+			@fuse.read(TEST_FILE,0,5,ffi).should == "12345"
+			@fuse.read(TEST_FILE,5,5,ffi).should == "67890"
+			@fuse.flush(TEST_FILE,ffi)
+			@fuse.release(TEST_FILE,ffi)
+    	end
+    	
+    end
+    
+    context "raw writing" do
+		it "should call raw_truncate,raw_write,raw_close if raw_open returns true" do
+			ffi = Struct::FuseFileInfo.new()
+			ffi.flags = Fcntl::O_WRONLY 
+			raw = Object.new()
+			@mock_fuse.stub!(:can_write?).with(TEST_FILE).and_return(true)
+			@mock_fuse.should_receive(:raw_open).with(TEST_FILE,"w",true).and_return(raw)
+			@mock_fuse.should_receive(:raw_truncate).with(TEST_FILE,0,raw)
+			@mock_fuse.should_receive(:raw_write).with(TEST_FILE,0,5,"12345",raw).once().and_return(5)
+			@mock_fuse.should_receive(:raw_write).with(TEST_FILE,5,5,"67890",raw).once().and_return(5)
+			@mock_fuse.should_receive(:raw_close).with(TEST_FILE,raw)
+			@fuse.open(TEST_FILE,ffi)
+			@fuse.ftruncate(TEST_FILE,0,ffi)
+    		@fuse.write(TEST_FILE,"12345",0,ffi).should == 5
+			@fuse.write(TEST_FILE,"67890",5,ffi).should == 5
+			@fuse.flush(TEST_FILE,ffi)
+			@fuse.release(TEST_FILE,ffi)
+		end
+
+		it "should pass 'wa' to raw_open if fuse sends WRONLY | APPEND" do
+            ffi = Struct::FuseFileInfo.new()
+			ffi.flags = Fcntl::O_WRONLY | Fcntl::O_APPEND
+			raw = Object.new()
+			@mock_fuse.stub!(:can_write?).with(TEST_FILE).and_return(true)
+			@mock_fuse.should_receive(:raw_open).with(TEST_FILE,"wa",true).and_return(raw)
+			@fuse.open(TEST_FILE,ffi)			
+		end
+	end
 
   end
   
