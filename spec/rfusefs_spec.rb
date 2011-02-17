@@ -304,6 +304,30 @@ describe FuseFS do
 			@fuse.open(TEST_FILE,ffi)			
 		end
 	end
+	
+	context "deleting files" do
+	    it "should raise EACCES unless :can_delete?" do
+	        @mock_fuse.should_receive(:can_delete?).with(TEST_FILE).and_return(false)
+	        lambda {@fuse.unlink(TEST_FILE)}.should raise_error(Errno::EACCES)
+	    end
+	    
+	    it "should :delete without error if :can_delete?" do
+	       @mock_fuse.stub!(:can_delete?).with(TEST_FILE).and_return(true)
+	       @fuse.unlink(TEST_FILE)
+	    end
+	end
+	
+	context "deleting directories" do
+	    it "should raise EACCES unless :can_rmdir?" do
+	       @mock_fuse.should_receive(:can_rmdir?).with(TEST_DIR).and_return(false)
+	       lambda{@fuse.rmdir(TEST_DIR)}.should raise_error(Errno::EACCES)
+	    end
+	    
+	    it "should :rmdir without error if :can_rmdir?" do
+	        @mock_fuse.stub!(:can_rmdir?).with(TEST_DIR).and_return(true)
+	        @fuse.rmdir(TEST_DIR)
+	    end
+	end
 
   end
   
