@@ -3,8 +3,6 @@
 # RFuseFS - FuseFS over RFuse
 require 'rfuse_ng'
 require 'fcntl'
-require 'forwardable'
-require 'pp'
 
 module FuseFS
   #Which raw api should we use?
@@ -14,7 +12,7 @@ module FuseFS
   
   # File/Directory attributes
   class Stat
-  	S_IFMT   = 0170000 # Format mask
+    S_IFMT   = 0170000 # Format mask
     S_IFDIR  = 0040000 # Directory.  
     S_IFCHR  = 0020000 # Character device.
     S_IFBLK  = 0060000 # Block device.
@@ -139,13 +137,26 @@ module FuseFS
   #We use a delegator here so we can test the RFuseFSAPI
   #without actually mounting FUSE
   class RFuseFS < RFuse::Fuse
-  	CHECK_FILE="/._rfuse_check_"
-  	  
-  	# TODO, wrap all delegate methods in a context block
-    extend Forwardable
-    def_delegators(:@delegate,:readdir,:getattr,:mkdir,:mknod,
+    CHECK_FILE="/._rfuse_check_"
+    
+    #Wrap all the rfuse methods in a context block
+    [:readdir,:getattr,:mkdir,:mknod,
     :truncate,:open,:read,:write,:flush,:release,
-    :utime,:rmdir,:unlink,:rename)
+    :utime,:rmdir,:unlink,:rename].each do |method|
+      method = method.id2name
+      class_eval(<<-EOM, "(__FUSE_DELEGATE__)",1 )
+    		def #{method} (ctx,*args,&block)
+    		  begin
+   			    RFuseFS.context(ctx) do
+     				@delegate.send(:#{method},*args,&block)
+    			end
+    		  rescue Exception
+    		    $@.delete_if{|s| /^\\(__FUSE_DELEGATE__\\):/ =~s}
+    		    Kernel::raise
+    		  end
+    		end
+    	EOM
+    end
     
     def initialize(mnt,kernelopt,libopt,root)
       @delegate = RFuseFSAPI.new(root)
@@ -176,9 +187,9 @@ module FuseFS
   # with a prior "getattr" call so we do not revalidate here.
   # http://sourceforge.net/apps/mediawiki/fuse/index.php?title=FuseInvariants       
   class RFuseFSAPI
-  	
+    
     include TraceCalls if FuseFS::TRACE
-
+    
     #If not implemented by our filesystem these values are returned
     API_OPTIONAL_METHODS = {
     :can_write? => false,
@@ -221,99 +232,91 @@ module FuseFS
     end
     
     
-    def readdir(ctx,path,filler,offset,ffi)
-      RFuseFS.context(ctx) do
-        
-        #Always have "." and ".."
-        filler.push(".",nil,0)
-        filler.push("..",nil,0)
-        
-        @root.contents(path).each do | filename |
-          filler.push(filename,nil,0)
-        end
+    def readdir(path,filler,offset,ffi)
+      
+      #Always have "." and ".."
+      filler.push(".",nil,0)
+      filler.push("..",nil,0)
+      
+      @root.contents(path).each do | filename |
+        filler.push(filename,nil,0)
       end
+      
     end
     
-    def getattr(ctx,path)
-      RFuseFS.context(ctx) do
-        uid = Process.gid
-        gid = Process.uid
+    def getattr(path)
+      uid = Process.gid
+      gid = Process.uid
+      
+      if  path == "/" || @root.directory?(path)
+        #set "w" flag based on can_mkdir? || can_write? to path + "/._rfuse_check"
+        write_test_path = (path == "/" ? "" : path) + RFuseFS::CHECK_FILE
         
-        if  path == "/" || @root.directory?(path)
-          #set "w" flag based on can_mkdir? || can_write? to path + "/._rfuse_check"
-          write_test_path = (path == "/" ? "" : path) + RFuseFS::CHECK_FILE
-          
-          mode = (@root.can_mkdir?(write_test_path) || @root.can_write?(write_test_path)) ? 0777 : 0555
-          atime,mtime,ctime = @root.times(path)
-          #nlink is set to 1 because apparently this makes find work.
-          return Stat.directory(mode,{ :uid => uid, :gid => gid, :nlink => 1, :atime => atime, :mtime => mtime, :ctime => ctime })
-        elsif @created_files.has_key?(path)
-          now = Time.now.to_i
-          return Stat.file(@created_files[path],{ :uid => uid, :gid => gid, :atime => now, :mtime => now, :ctime => now })
-        elsif @root.file?(path)
-          #Set mode from can_write and executable
-          mode = 0444
-          mode |= 0222 if @root.can_write?(path)
-          mode |= 0111 if @root.executable?(path)
-          size = @root.size(path)
-          atime,mtime,ctime = @root.times(path)
-          return Stat.file(mode,{ :uid => uid, :gid => gid, :size => size, :atime => atime, :mtime => mtime, :ctime => ctime })
-        else
-        	raise Errno::ENOENT.new(path)
-        end
+        mode = (@root.can_mkdir?(write_test_path) || @root.can_write?(write_test_path)) ? 0777 : 0555
+        atime,mtime,ctime = @root.times(path)
+        #nlink is set to 1 because apparently this makes find work.
+        return Stat.directory(mode,{ :uid => uid, :gid => gid, :nlink => 1, :atime => atime, :mtime => mtime, :ctime => ctime })
+      elsif @created_files.has_key?(path)
+        now = Time.now.to_i
+        return Stat.file(@created_files[path],{ :uid => uid, :gid => gid, :atime => now, :mtime => now, :ctime => now })
+      elsif @root.file?(path)
+        #Set mode from can_write and executable
+        mode = 0444
+        mode |= 0222 if @root.can_write?(path)
+        mode |= 0111 if @root.executable?(path)
+        size = @root.size(path)
+        atime,mtime,ctime = @root.times(path)
+        return Stat.file(mode,{ :uid => uid, :gid => gid, :size => size, :atime => atime, :mtime => mtime, :ctime => ctime })
+      else
+        raise Errno::ENOENT.new(path)
       end
+      
     end #getattr
     
-    def mkdir(ctx,path,mode)
-      RFuseFS.context(ctx) do
-        
-        unless @root.can_mkdir?(path)
-          raise Errno::EACCES.new(path)
-        end
-        
-        @root.mkdir(path)
+    def mkdir(path,mode)
+      
+      unless @root.can_mkdir?(path)
+        raise Errno::EACCES.new(path)
       end
+      
+      @root.mkdir(path)
     end #mkdir
     
-    def mknod(ctx,path,mode,dev)
-      RFuseFS.context(ctx) do
-
-      	unless ((Stat::S_IFMT & mode) == Stat::S_IFREG ) && @root.can_write?(path)
-          raise Errno::EACCES.new(path)
-        end
+    def mknod(path,mode,dev)
+      
+      unless ((Stat::S_IFMT & mode) == Stat::S_IFREG ) && @root.can_write?(path)
+        raise Errno::EACCES.new(path)
       end
       
       @created_files[path] = mode
     end #mknod
     
     #ftruncate - eg called after opening a file for write without append
-    def ftruncate(ctx,path,offset,ffi) 
-    	fh = ffi.fh
-    	
-    	if fh.raw
-    		@root.raw_truncate(path,offset,fh.raw)
-    	elsif (offset <= 0)
-    		fh.contents = ""
-    	else
-    		fh.contents = fh.contents[0..offset]
-    	end
+    def ftruncate(path,offset,ffi)
+      fh = ffi.fh
+      
+      if fh.raw
+        @root.raw_truncate(path,offset,fh.raw)
+      elsif (offset <= 0)
+        fh.contents = ""
+      else
+        fh.contents = fh.contents[0..offset]
+      end
     end
     
     #truncate a file outside of open files
-    def truncate(ctx,path,offset)
-      RFuseFS.context(ctx) do
-        
-        unless @root.can_write?(path)
-          raise Errno::EACESS.new(path)
-        end
-        
-        unless @root.raw_truncate(path,offset)
-          contents = @root.read_file(path)
-          if (offset <= 0)
-            @root.write_to(path,"")
-          elsif offset < contents.length
-            @root.write_to(path,contents[0..offset] )
-          end
+    def truncate(path,offset)
+      
+      unless @root.can_write?(path)
+        raise Errno::EACESS.new(path)
+      end
+      
+      unless @root.raw_truncate(path,offset)
+        contents = @root.read_file(path)
+        if (offset <= 0)
+          @root.write_to(path,"")
+        elsif offset < contents.length
+          @root.write_to(path,contents[0..offset] )
         end
       end
     end #truncate
@@ -321,79 +324,73 @@ module FuseFS
     # Open. Create a FileHandler and store in fuse file info
     # This will be returned to us in read/write
     # No O_CREATE (mknod first?), no O_TRUNC (truncate first)
-    def open(ctx,path,ffi)
-      RFuseFS.context(ctx) do
-        fh = FileHandle.new(path,ffi.flags)
+    def open(path,ffi)
+      fh = FileHandle.new(path,ffi.flags)
+      
+      #Save the value return from raw_open to be passed back in raw_read/write etc..
+      if (FuseFS::RFUSEFS_COMPATIBILITY)
+        fh.raw = @root.raw_open(path,fh.raw_mode,true)
+      else
+        fh.raw = @root.raw_open(path,fh.raw_mode)
+      end
+      
+      unless fh.raw
         
-        #Save the value return from raw_open to be passed back in raw_read/write etc..
-        if (FuseFS::RFUSEFS_COMPATIBILITY)
-          fh.raw = @root.raw_open(path,fh.raw_mode,true)
-        else
-          fh.raw = @root.raw_open(path,fh.raw_mode)
-        end
-        
-        unless fh.raw
-          
-          if fh.rdonly?
-            fh.contents = @root.read_file(path)
-          elsif fh.rdwr? || fh.wronly?
-            unless @root.can_write?(path)
-              raise Errno::EACCES.new(path)
-            end
-            
-            if @created_files.has_key?(path)
-              #we have an empty file
-              fh.contents = "";
-          	else
-              if fh.rdwr? || fh.append?
-               fh.contents = @root.read_file(path)
-              else #wronly && !append
-              	  #We should get a truncate 0, but might as well play it safe
-                fh.contents = ""
-              end
-            end
-          else
-            raise Errno::ENOPERM.new(path)
+        if fh.rdonly?
+          fh.contents = @root.read_file(path)
+        elsif fh.rdwr? || fh.wronly?
+          unless @root.can_write?(path)
+            raise Errno::EACCES.new(path)
           end
+          
+          if @created_files.has_key?(path)
+            #we have an empty file
+            fh.contents = "";
+          else
+            if fh.rdwr? || fh.append?
+              fh.contents = @root.read_file(path)
+            else #wronly && !append
+              #We should get a truncate 0, but might as well play it safe
+              fh.contents = ""
+            end
+          end
+        else
+          raise Errno::ENOPERM.new(path)
         end
-        #If we get this far, save our filehandle in the FUSE structure
-        ffi.fh=fh
-        
-      end #context
+      end
+      #If we get this far, save our filehandle in the FUSE structure
+      ffi.fh=fh
+      
     end
     
-    def read(ctx,path,size,offset,ffi)
+    def read(path,size,offset,ffi)
       fh = ffi.fh
       
       if fh.raw
-        RFuseFS.context(ctx) do
-          if FuseFS::RFUSEFS_COMPATIBILITY
-            return @root.raw_read(path,offset,size,fh.raw)
-          else
-            return @root.raw_read(path,offset,size)
-          end
+        if FuseFS::RFUSEFS_COMPATIBILITY
+          return @root.raw_read(path,offset,size,fh.raw)
+        else
+          return @root.raw_read(path,offset,size)
         end
       elsif offset >= 0
         return fh.read(offset,size)
       else
-      	  #TODO: Raise? what does a negative offset mean
+        #TODO: Raise? what does a negative offset mean
         return ""
       end
       
       
     end
     
-    def write(ctx,path,buf,offset,ffi)
+    def write(path,buf,offset,ffi)
       fh = ffi.fh
       
       if fh.raw
-        RFuseFS.context(ctx) do
-          if FuseFS::RFUSEFS_COMPATIBILITY
-            return @root.raw_write(path,offset,buf.length,buf,fh.raw)
-          else
-            @root.raw_write(path,offset,buf.length,buf)
-            return buf.length
-          end
+        if FuseFS::RFUSEFS_COMPATIBILITY
+          return @root.raw_write(path,offset,buf.length,buf,fh.raw)
+        else
+          @root.raw_write(path,offset,buf.length,buf)
+          return buf.length
         end
       else
         return fh.write(offset,buf)
@@ -401,21 +398,18 @@ module FuseFS
       
     end
     
-    def flush(ctx,path,ffi)
+    def flush(path,ffi)
       fh = ffi.fh
-       
-      RFuseFS.context(ctx) do
-        
-        if fh.raw
-          if (FuseFS::RFUSEFS_COMPATIBILITY)
-            @root.raw_close(path,fh.raw)
-          else
-            @root.raw_close(path)
-          end
-        elsif fh.modified?
-          #write contents to the file and mark it unmodified
-          @root.write_to(path,fh.flush())
+      
+      if fh.raw
+        if (FuseFS::RFUSEFS_COMPATIBILITY)
+          @root.raw_close(path,fh.raw)
+        else
+          @root.raw_close(path)
         end
+      elsif fh.modified?
+        #write contents to the file and mark it unmodified
+        @root.write_to(path,fh.flush())
       end
       
       #if file was created with mknod it now exists in the filesystem so we don't need to
@@ -423,87 +417,81 @@ module FuseFS
       @created_files.delete(path)
     end
     
-    def release(ctx,path,ffi)
-    	flush(ctx,path,ffi)
+    def release(path,ffi)
+      flush(path,ffi)
     end
     
     
     
-    #def chmod(ctx,path,mode)
+    #def chmod(path,mode)
     #end
     
-    #def chown(ctx,path,uid,gid)
+    #def chown(path,uid,gid)
     #end
     
-    def utime(ctx,path,actime,modtime)
+    def utime(path,actime,modtime)
       #Touch...
       if @root.respond_to?(:touch)
         @root.touch(path,modtime)
       end
     end
     
-    def unlink(ctx,path)
-      RFuseFS.context(ctx) do
-        unless @root.can_delete?(path)
-          raise Errno::EACCES.new(path)
-        end
-        
-        @root.delete(path)
+    def unlink(path)
+      unless @root.can_delete?(path)
+        raise Errno::EACCES.new(path)
+      end
+      
+      @root.delete(path)
+    end
+    
+    def rmdir(path)
+      unless @root.can_rmdir?(path)
+        raise Errno::EACCES.new(path)
+      end
+      @root.rmdir(path)
+    end
+    
+    #def symlink(path,as)
+    #end
+    
+    def rename(from,to)
+      if @root.rename(from,to)
+        #nothing to do
+      elsif @root.file?(from) && @root.can_write(to) &&  @root.can_delete(from)
+        contents = @root.read_file(from)
+        @root.write_to(to,contents)
+        @root.delete(from)
+      else
+        raise Errno:EACCES
       end
     end
     
-    def rmdir(ctx,path)
-      RFuseFS.context(ctx) do
-        unless @root.can_rmdir?(path)
-          raise Errno::EACCES.new(path)
-        end
-        @root.rmdir(path)
-      end
-    end
-    
-    #def symlink(ctx,path,as)
+    #def link(path,as)
     #end
     
-    def rename(ctx,from,to)
-      RFuseFS.context(ctx) do
-        if @root.rename(from,to)
-          #nothing to do
-        elsif @root.file?(from) && @root.can_write(to) &&  @root.can_delete(from)
-          contents = @root.read_file(from)
-          @root.write_to(to,contents)
-          @root.delete(from)
-        else
-          raise Errno:EACCES
-        end
-      end
-    end
+    # def setxattr(path,name,value,size,flags)
+    # end
     
-    #def link(ctx,path,as)
+    # def getxattr(path,name,size)
+    # end
+    
+    # def listxattr(path,size)
+    # end
+    
+    # def removexattr(path,name)
+    # end
+    
+    #def opendir(path,ffi)
     #end
     
-    # def setxattr(ctx,path,name,value,size,flags)
-    # end
-    
-    # def getxattr(ctx,path,name,size)
-    # end
-    
-    # def listxattr(ctx,path,size)
-    # end
-    
-    # def removexattr(ctx,path,name)
-    # end
-    
-    #def opendir(ctx,path,ffi)
+    #def releasedir(path,ffi)
     #end
     
-    #def releasedir(ctx,path,ffi)
-    #end
-    
-    #def fsyncdir(ctx,path,meta,ffi)
+    #def fsyncdir(path,meta,ffi)
     #end
     
     # Some random numbers to show with df command
-    #def statfs(ctx,path)   
+    #def statfs(path)   
     #end
     
   end #class RFuseFSAPI
