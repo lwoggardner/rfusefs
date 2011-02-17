@@ -129,18 +129,32 @@ are automatically read-only.
                             "touch musicfile.mp3" -> Play the mp3.
 
 If you want a lower level control of your file, then you can use:
-
-    :raw_truncate(path,off) # *RFuseFS* Truncate file at path to offset
-                              bytes. Called before a file is opened for write    
  
-    :raw_open(path,mode)   # mode is "r" "w" or "rw", with "a" if the file
-                             is opened for append. If raw_open returns true,
-                             then the following calls are made:
-    :raw_read(path,off,sz) # Read sz bites from file at path starting at
-                             offset off
-    :raw_write(path,off,sz,buf) # Write sz bites of buf to path starting at
-                                  offset off
-    :raw_close(path)       # Close the file.
+    :raw_open(path,mode) 
+    			# mode is "r" "w" or "rw", with "a" if the file
+                          is opened for append. Under RFuseFS the value
+                          returned from raw is passed back in to the methods
+                          below.
+                             
+    :raw_truncate(path,off,[raw])
+    			# *RFuseFS* Truncate file at path to offset bytes
+    			# Called immediately after a file is opened for write
+    			# without append or client otherwise wants to
+    			# truncate an open file
+    			# This method can also be invoked (without raw)
+    			# outside of an open file context
+    			# see FUSE:truncate v ftruncate
+                             
+    :raw_read(path,off,sz,[raw])
+                        # Read sz bites from file at path starting at
+                          offset off
+                             
+    :raw_write(path,off,sz,buf,[raw])
+    			# Write sz bites of buf to path starting at
+                          offset off
+                                  
+    :raw_close(path,[raw])
+    			# Close the file.
     
 
 Method call flow

@@ -1,4 +1,7 @@
-
+module FuseFS
+	TRACE = true
+end
+require 'pp'
 module TraceCalls
   def self.included(klass)
     klass.instance_methods(false).each do |existing_method|
@@ -15,7 +18,7 @@ module TraceCalls
       klass.instance_eval do
         method_object = instance_method(method)
         define_method(method) do |*args, &block|
-          puts "==> #{ self }.#{ method }(#{ args.inspect })"
+        	puts "==> #{ self }.#{ method }(#{ args.inspect })"
           result = method_object.bind(self).call(*args, &block)
           puts "<== #{ self }.#{ method }() => #{ result.inspect }"
           result

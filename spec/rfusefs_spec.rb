@@ -4,6 +4,8 @@ describe FuseFS do
   TEST_FILE = "/aPath/aFile" 
   TEST_DIR = "/aPath"
   ROOT_PATH = "/"
+  Struct.new("FuseFileInfo",:flags,:fh)
+  
   before(:each) do
     
     @mock_context = mock("rfuse context")
@@ -170,29 +172,6 @@ describe FuseFS do
  
     context "creating files and directories" do
     	
-    	it ":mknod and :mkdir should raise EEXIST for existing files" do
-    		@mock_fuse.stub!(:directory?).with(TEST_FILE).and_return(false)
-    		@mock_fuse.stub!(:file?).with(TEST_FILE).and_return(true)
-    		lambda{@fuse.mknod(@mock_context,TEST_FILE,0100644,nil)}.should raise_error(Errno::EEXIST)
-    		lambda{@fuse.mkdir(@mock_context,TEST_FILE,004555)}.should raise_error(Errno::EEXIST)
-    	end
-    	
-    	it ":mknod and :mkdir should raise EEXIST for existing directories" do
-    		@mock_fuse.stub!(:file?).with(TEST_DIR).and_return(false)
-    		@mock_fuse.stub!(:directory?).with(TEST_DIR).and_return(true)
-    		lambda{@fuse.mknod(@mock_context,TEST_DIR,0100644,nil)}.should raise_error(Errno::EEXIST)
-    		lambda{@fuse.mkdir(@mock_context,TEST_DIR,004555)}.should raise_error(Errno::EEXIST)
-    	end
-
-        it ":mknod and :mkdir should raise EEXIST for previously mknod path" do
-   		    @mock_fuse.stub!(:file?).with(TEST_FILE).and_return(false)
-    		@mock_fuse.stub!(:directory?).with(TEST_FILE).and_return(false)
-    		@mock_fuse.stub!(:can_write?).with(TEST_FILE).and_return(true)
-    		@fuse.mknod(@mock_context,TEST_FILE,FuseFS::Stat::S_IFREG | 0644,nil)
-    		lambda{@fuse.mknod(@mock_context,TEST_FILE,FuseFS::Stat::S_IFREG | 0644,nil)}.should raise_error(Errno::EEXIST)
-    		lambda{@fuse.mkdir(@mock_context,TEST_FILE,004555)}.should raise_error(Errno::EEXIST)
-        end
-    	
     	it ":mknod should raise EACCES unless :can_write?" do
     		@mock_fuse.stub!(:file?).with(TEST_FILE).and_return(false)
     		@mock_fuse.stub!(:directory?).with(TEST_FILE).and_return(false)
@@ -226,17 +205,63 @@ describe FuseFS do
     	end
     	
     	it ":mkdir should not raise error if can_mkdir?" do
-    		@mock_fuse.stub!(:file?).with(TEST_FILE).and_return(false)
-    		@mock_fuse.stub!(:directory?).with(TEST_FILE).and_return(false)
     		@mock_fuse.should_receive(:can_mkdir?).with(TEST_FILE).and_return(true)
-    		lambda{@fuse.mkdir(@mock_context,TEST_FILE,004555)}.should_not raise_error()	
-
+    		@fuse.mkdir(@mock_context,TEST_FILE,004555)	
     	end
       
     end
     
-    context "reading files"
-    context "writing files"
+    context "reading files" do
+    	it "should read the contents of a file" do
+    		ffi = Struct::FuseFileInfo.new()
+    		ffi.flags = Fcntl::O_RDONLY
+    		@mock_fuse.stub!(:file?).with(TEST_FILE).and_return(true)
+    		@mock_fuse.stub!(:read_file).with(TEST_FILE).and_return("Hello World\n")
+    		@fuse.open(@mock_context,TEST_FILE,ffi)
+    		#to me fuse is backwards -- size, offset!
+    		@fuse.read(@mock_context,TEST_FILE,5,0,ffi).should == "Hello"
+    		@fuse.read(@mock_context,TEST_FILE,4,6,ffi).should == "Worl"
+    		@fuse.read(@mock_context,TEST_FILE,10,8,ffi).should == "rld\n"
+    		@fuse.flush(@mock_context,TEST_FILE,ffi)
+    		@fuse.release(@mock_context,TEST_FILE,ffi)
+    	end
+    end
+    
+    context "writing files" do
+    	it "should overwrite a file opened WR_ONLY" do
+    		ffi = Struct::FuseFileInfo.new()
+    		ffi.flags = Fcntl::O_WRONLY
+    		@mock_fuse.stub!(:can_write?).with(TEST_FILE).and_return(true)
+    		@mock_fuse.stub!(:read_file).with(TEST_FILE).and_return("I'm writing a file\n")
+    		@mock_fuse.should_receive(:write_to).once().with(TEST_FILE,"My new contents\n")
+    		@fuse.open(@mock_context,TEST_FILE,ffi)
+    		@fuse.ftruncate(@mock_context,TEST_FILE,0,ffi)
+    		@fuse.write(@mock_context,TEST_FILE,"My new c",0,ffi)
+    		@fuse.write(@mock_context,TEST_FILE,"ontents\n",8,ffi)
+    		@fuse.flush(@mock_context,TEST_FILE,ffi)
+    		#that's right flush can be called more than once.
+    		@fuse.flush(@mock_context,TEST_FILE,ffi)
+    		#but then we can write some more and flush again
+    		@fuse.release(@mock_context,TEST_FILE,ffi)
+    	end
+    	
+    	it "should append to a file opened WR_ONLY | APPEND" do
+     		ffi = Struct::FuseFileInfo.new()
+    		ffi.flags = Fcntl::O_WRONLY | Fcntl::O_APPEND
+    		@mock_fuse.stub!(:can_write?).with(TEST_FILE).and_return(true)
+    		@mock_fuse.stub!(:read_file).with(TEST_FILE).and_return("I'm writing a file\n")
+    		@mock_fuse.should_receive(:write_to).once().with(TEST_FILE,"I'm writing a file\nMy new contents\n")
+    		@fuse.open(@mock_context,TEST_FILE,ffi)
+    		@fuse.write(@mock_context,TEST_FILE,"My new c",0,ffi)
+    		@fuse.write(@mock_context,TEST_FILE,"ontents\n",8,ffi)
+    		@fuse.flush(@mock_context,TEST_FILE,ffi)
+    		#that's right flush can be called more than once. But we should only write-to the first time
+    		@fuse.flush(@mock_context,TEST_FILE,ffi)
+    		@fuse.release(@mock_context,TEST_FILE,ffi)
+   		
+    	end
+    	
+    end
     context "raw reading"
     context "raw writing"
 

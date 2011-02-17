@@ -9,6 +9,7 @@ require 'pp'
 module FuseFS
   #Which raw api should we use?
   RFUSEFS_COMPATIBILITY = true unless FuseFS.const_defined?(:RFUSEFS_COMPATIBILITY)
+  TRACE = false unless FuseFS.const_defined?(:TRACE)
   
   
   # File/Directory attributes
@@ -111,7 +112,7 @@ module FuseFS
     end
     
     def append?
-      writing? && flags & Fcntl::O_APPEND
+      writing? && (flags & Fcntl::O_APPEND != 0)
     end
     
     def reading?
@@ -170,9 +171,13 @@ module FuseFS
     end
   end #class RFuseFS
   
+  # Implements the FuseFS api. 
+  # The path supplied to these methods is generally validated by FUSE itself
+  # with a prior "getattr" call so we do not revalidate here.
+  # http://sourceforge.net/apps/mediawiki/fuse/index.php?title=FuseInvariants       
   class RFuseFSAPI
-     #require 'tracecalls'
-  	 #include TraceCalls
+  	
+    include TraceCalls if FuseFS::TRACE
 
     #If not implemented by our filesystem these values are returned
     API_OPTIONAL_METHODS = {
@@ -186,6 +191,7 @@ module FuseFS
     :rmdir => nil,
     :touch => nil,
     :rename => nil,
+    :raw_truncate => nil,
     :raw_open => nil,
     :raw_read => nil,
     :raw_write => nil,
@@ -217,12 +223,6 @@ module FuseFS
     
     def readdir(ctx,path,filler,offset,ffi)
       RFuseFS.context(ctx) do
-        #Apparently the directory? check is unnecessary - getAttr has already been called
-        #and checked.
-        #http://sourceforge.net/apps/mediawiki/fuse/index.php?title=FuseInvariants
-        #unless @root.directory?(path)
-        #  raise Errno::ENOTDIR.new(path)
-        #end
         
         #Always have "." and ".."
         filler.push(".",nil,0)
@@ -266,11 +266,6 @@ module FuseFS
     
     def mkdir(ctx,path,mode)
       RFuseFS.context(ctx) do
-        #Not if we are already a directory or file
-        
-        if @root.directory?(path) || @root.file?(path) || @created_files[path]
-          raise Errno::EEXIST.new(path)
-        end
         
         unless @root.can_mkdir?(path)
           raise Errno::EACCES.new(path)
@@ -282,28 +277,31 @@ module FuseFS
     
     def mknod(ctx,path,mode,dev)
       RFuseFS.context(ctx) do
-      	  
-        if (@root.file?(path) || @root.directory?(path) || @created_files[path])
-          raise Errno::EEXIST.new(path)
-        end
-        
-        unless ((Stat::S_IFMT & mode) == Stat::S_IFREG ) && @root.can_write?(path)
+
+      	unless ((Stat::S_IFMT & mode) == Stat::S_IFREG ) && @root.can_write?(path)
           raise Errno::EACCES.new(path)
         end
       end
       
-      printf("mknod: %o\n",mode)
       @created_files[path] = mode
     end #mknod
     
-    #truncate a file (note not ftruncate - so this is outside of open files)
+    #ftruncate - eg called after opening a file for write without append
+    def ftruncate(ctx,path,offset,ffi) 
+    	fh = ffi.fh
+    	
+    	if fh.raw
+    		@root.raw_truncate(path,offset,fh.raw)
+    	elsif (offset <= 0)
+    		fh.contents = ""
+    	else
+    		fh.contents = fh.contents[0..offset]
+    	end
+    end
+    
+    #truncate a file outside of open files
     def truncate(ctx,path,offset)
       RFuseFS.context(ctx) do
-        
-        #unnecessary?
-        unless @root.file?(path)
-          raise Errno:ENOENT.new(path)
-        end
         
         unless @root.can_write?(path)
           raise Errno::EACESS.new(path)
@@ -337,11 +335,7 @@ module FuseFS
         unless fh.raw
           
           if fh.rdonly?
-            unless @root.file?(path)
-              raise Errno::ENOENT.new(path)
-            end
             fh.contents = @root.read_file(path)
-            
           elsif fh.rdwr? || fh.wronly?
             unless @root.can_write?(path)
               raise Errno::EACCES.new(path)
@@ -350,14 +344,13 @@ module FuseFS
             if @created_files.has_key?(path)
               #we have an empty file
               fh.contents = "";
-            elsif @root.file?(path)
+          	else
               if fh.rdwr? || fh.append?
-                fh.contents = @root.read_file(path)
+               fh.contents = @root.read_file(path)
               else #wronly && !append
+              	  #We should get a truncate 0, but might as well play it safe
                 fh.contents = ""
               end
-            else
-              raise Errno::ENOENT.new(path)
             end
           else
             raise Errno::ENOPERM.new(path)
@@ -383,7 +376,8 @@ module FuseFS
       elsif offset >= 0
         return fh.read(offset,size)
       else
-        return 0
+      	  #TODO: Raise? what does a negative offset mean
+        return ""
       end
       
       
@@ -409,12 +403,7 @@ module FuseFS
     
     def flush(ctx,path,ffi)
       fh = ffi.fh
-      
-      #unnecessary?
-      unless fh && fh.path == path
-        raise Errno::EBADF.new(path)
-      end
-      
+       
       RFuseFS.context(ctx) do
         
         if fh.raw
@@ -435,7 +424,7 @@ module FuseFS
     end
     
     def release(ctx,path,ffi)
-      
+    	flush(ctx,path,ffi)
     end
     
     
