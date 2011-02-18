@@ -1,0 +1,163 @@
+From 18171a60f975bf79eb2c960e63c3e97f51e7025d Mon Sep 17 00:00:00 2001
+From: Grant Gardner <grant@lastweekend.com.au>
+Date: Thu, 10 Feb 2011 23:49:43 +1100
+Subject: [PATCH 2/3] exception backtraces and ruby filehandle object in open
+
+---
+ ext/file_info.c |   33 ++++++++++++++++++++++++++++++++-
+ ext/rfuse.c     |   40 +++++++++++++++++++++++++++++-----------
+ 2 files changed, 61 insertions(+), 12 deletions(-)
+
+diff --git a/ext/file_info.c b/ext/file_info.c
+index aa32e04..aa1592d 100644
+--- a/ext/file_info.c
++++ b/ext/file_info.c
+@@ -2,12 +2,21 @@
+ #include <fuse.h>
+ 
+ 
++static void file_info_mark(struct fuse_file_info *ffi) {
++  if (TYPE(ffi->fh) != T_NONE) {
++     rb_gc_mark((VALUE) ffi->fh);
++  } 
++}
++
++//creates a FileInfo object from an already allocated ffi
+ VALUE wrap_file_info(struct fuse_file_info *ffi) {
+   VALUE rRFuse;
+   VALUE rFileInfo;
+   rRFuse=rb_const_get(rb_cObject,rb_intern("RFuse"));
+   rFileInfo=rb_const_get(rRFuse,rb_intern("FileInfo"));
+-  return Data_Wrap_Struct(rFileInfo,0,0,ffi); //shouldn't be freed!
++  //TODO GG: we need a mark function here to ensure the ffi-fh value is not GC'd
++  //between open and release
++  return Data_Wrap_Struct(rFileInfo,file_info_mark,0,ffi); //shouldn't be freed!
+ 
+ };
+ 
+@@ -16,6 +25,8 @@ VALUE file_info_initialize(VALUE self){
+   return self;
+ }
+ 
++//TODO GG: This probably needs a free function and be converted to alloc/initialize
++//but this probably never gets called anyway
+ VALUE file_info_new(VALUE class){
+   VALUE self;
+   struct fuse_file_info *f;
+@@ -35,11 +46,31 @@ VALUE file_info_flags(VALUE self) {
+   return INT2FIX(f->flags);
+ }
+ 
++//fh is possibly a pointer to a ruby object and can be set
++VALUE file_info_fh(VALUE self) {
++   struct fuse_file_info *f;
++   Data_Get_Struct(self,struct fuse_file_info,f);
++  if (TYPE(f->fh) != T_NONE) {
++    return (VALUE) f->fh;
++  } else {
++    return Qnil;
++  }
++}
++
++VALUE file_info_fh_assign(VALUE self,VALUE value) {
++   struct fuse_file_info *f;
++   Data_Get_Struct(self,struct fuse_file_info,f);
++   f->fh = value;
++   return value;
++}
++
+ VALUE file_info_init(VALUE module) {
+   VALUE cFileInfo=rb_define_class_under(module,"FileInfo",rb_cObject);
+   rb_define_alloc_func(cFileInfo,file_info_new);
+   rb_define_method(cFileInfo,"initialize",file_info_initialize,0);
+   rb_define_method(cFileInfo,"flags",file_info_flags,0);
+   rb_define_method(cFileInfo,"writepage",file_info_writepage,0);
++  rb_define_method(cFileInfo,"fh",file_info_fh,0);
++  rb_define_method(cFileInfo,"fh=",file_info_fh_assign,1);
+   return cFileInfo;
+ }
+diff --git a/ext/rfuse.c b/ext/rfuse.c
+index 3db130f..1780a57 100644
+--- a/ext/rfuse.c
++++ b/ext/rfuse.c
+@@ -24,11 +24,22 @@ static VALUE fuse_object;
+ 
+ static int unsafe_return_error(VALUE *args)
+ {
+-  VALUE info;
+-  info = rb_inspect(ruby_errinfo);
+-  rb_backtrace();
+-  printf ("ERROR %s\n",STR2CSTR(info));
+-  return rb_funcall(info,rb_intern("errno"),0);
++ 
++  if (rb_respond_to(ruby_errinfo,rb_intern("errno"))) {
++    //We expect these and they get passed on the fuse so be quiet...
++    return rb_funcall(ruby_errinfo,rb_intern("errno"),0);
++  } else {
++    VALUE info;
++    info = rb_inspect(ruby_errinfo);
++    printf ("ERROR: Exception %s not an Errno:: !respond_to?(:errno) \n",STR2CSTR(info)); 
++    //We need the ruby_errinfo backtrace not fuse.loop ... rb_backtrace();
++    VALUE bt_ary = rb_funcall(ruby_errinfo, rb_intern("backtrace"),0);
++    int c;
++    for (c=0;c<RARRAY(bt_ary)->len;c++) {
++      printf("%s\n",RSTRING(RARRAY(bt_ary)->ptr[c])->ptr);
++    }
++    return Qnil;
++  }
+ }
+ 
+ static int return_error(int def_error)
+@@ -39,14 +50,14 @@ static int return_error(int def_error)
+   int error = 0;
+   res=rb_protect((VALUE (*)())unsafe_return_error,Qnil,&error);
+   if (error)
+-  { //this exception has no errno method or something else 
+-    //went wrong
+-    printf ("ERROR: Not an Errno::xxx error or exception in exception!\n");
++  { 
++    //something went wrong resolving the exception
++    printf ("ERROR: Exception in exception!\n");
+     return def_error;
+   }
+-  else
++  else 
+   {
+-    return FIX2INT(res);
++    return NIL_P(res) ? def_error : FIX2INT(res);
+   }
+ }
+ 
+@@ -300,6 +311,7 @@ static int rf_open(const char *path,struct fuse_file_info *ffi)
+   VALUE res;
+   int error = 0;
+   args[0]=rb_str_new2(path);
++  //GG: is args[1] kept on the stack and thus referenced from the GC's perspective?
+   args[1]=wrap_file_info(ffi);
+   res=rb_protect((VALUE (*)())unsafe_open,(VALUE) args,&error);
+   if (error)
+@@ -308,6 +320,10 @@ static int rf_open(const char *path,struct fuse_file_info *ffi)
+   }
+   else
+   {
++    if (TYPE(ffi->fh) != T_NONE) {
++       //Make sure the GC doesn't collect our FileHandle
++       rb_gc_register_address((VALUE*) ffi->fh);
++    }
+     return 0;
+   }
+ }
+@@ -332,7 +348,9 @@ static int rf_release(const char *path, struct fuse_file_info *ffi)
+   args[0]=rb_str_new2(path);
+   args[1]=wrap_file_info(ffi);
+   res=rb_protect((VALUE (*)())unsafe_release,(VALUE) args,&error);
+-
++  if (TYPE(ffi->fh) != T_NONE) {
++     rb_gc_unregister_address((VALUE*) ffi->fh);
++  }
+   if (error)
+   {
+     return -(return_error(ENOENT));
+-- 
+1.7.1
+
