@@ -1,7 +1,7 @@
 RFuseFS API DOCUMENT
 ===================
 
-Last updated: 2011.02.12 by Grant Gardner
+Last updated: 2011.02.18 by Grant Gardner
 
 WARNING
 -------
@@ -18,7 +18,8 @@ FuseFS API
 ----------
 
 Note: The module is FuseFS as this is a direct replacement. Much of this document
-is derived from the FuseFS version - additions or differences are noted explicitly
+is derived from the original FuseFS version and API differences are noted
+explicitly
 
 FuseFS provides a layer of abstraction to a programmer who wants to create a
 virtual filesystem via FUSE.
@@ -53,7 +54,7 @@ read, returns "Hello, World!"
 
 This is not writable to, and contains no other files.
 
-  require 'fusefs'
+  require 'rfusefs'
 
   class HelloDir
     def contents(path)
@@ -69,11 +70,6 @@ This is not writable to, and contains no other files.
 
   hellodir = HelloDir.new
   
-  Kernel.at_exit() do
-     FuseFS.exit()
-     FuseFS.unmount()
-  end
-
   FuseFS.start(ARGV.shift,hellodir)
 
 
@@ -121,12 +117,8 @@ are automatically read-only.
 
   Neat "toy":
 
-    :touch(path)        # Called when a file is 'touch'd or otherwise has
-                          their timestamps explicitly modified. I envision
-                          this as a neat toy, maybe you can use it for a
-                          push-button file?
-                            "touch button" -> unmounts fusefs?
-                            "touch musicfile.mp3" -> Play the mp3.
+    :touch(path,modtime) # Called when a file is 'touch'd or otherwise has
+                          their timestamp explicitly modified. 
 
 If you want a lower level control of your file, then you can use:
  
@@ -155,7 +147,10 @@ If you want a lower level control of your file, then you can use:
                                   
     :raw_close(path,[raw])
     			# Close the file.
-    
+
+    :rename(from_path,to_path)
+                # move a file or directory
+                # return false to fallback to copy/delete file method
 
 Method call flow
 ================
@@ -192,6 +187,11 @@ Writing files:
 Deleting files:
 
   Fuse confirms path is a file before we call :can_delete? then :delete
+
+Renaming files:
+
+  Fuse confirms files or directory move. FuseFS checks :file?(from), :can_write?(to), :can_delete?(from)
+  then executes :read_file(from), :write_to(to), :delete(from)
 
 Creating dirs:
 

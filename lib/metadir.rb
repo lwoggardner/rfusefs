@@ -65,7 +65,7 @@ module FuseFS
     def times(path)
       pathmethod(:times,INIT_TIMES,path) do |filename|
         obj =  @files[filename] || @subdirs[filename]
-        return obj.respond_to?(:times) ? obj.times : INIT_TIMES
+        return obj.respond_to?(:times) ? obj.times(path) : INIT_TIMES
       end
     end
     
@@ -98,7 +98,7 @@ module FuseFS
     
     #mkdir - does not make intermediate dirs!
     def can_mkdir?(path)
-      pathmethod(:can_mkdir?,false,path) do |dirname|
+      pathmethod(:can_mkdir?,false,path,dir) do |dirname,dirobj|
         dirname && !(@subdirs.has_key?(dirname) || @files.has_key?(dirname))
       end
     end
@@ -110,7 +110,7 @@ module FuseFS
       end
     end
     
-    # Delete an existing directory.    
+    # Delete an existing directory. 
     def can_rmdir?(path)
       pathmethod(:can_rmdir?,false,path) do |dirname|
         @subdirs.has_key?(dirname) && @subdirs[dirname].contents.empty?
@@ -123,8 +123,34 @@ module FuseFS
       end
     end
     
-    private
-    #All our FuseFS methods follow the same pattern, so following DRY...   
+    def rename(from_path,to_path)
+        
+        unless directory?(from_path)
+            return false
+        end
+
+        unless can_mkdir?(to_path)
+             raise Errno::EACCES.new("No access to move #{from_path} to #{to_path}")
+        end
+
+        putdir(to_path,deldir(from_path))
+    end
+
+  private
+    
+    def deldir(path)
+       pathmethod(:deldir,nil,path) do |dirname|
+            @subdirs.delete(dirname)
+       end
+    end
+
+    def putdir(path,dir)
+       pathmethod(:putdir,nil,path,dir) do |dirname,dirobj|
+          @subdirs[dirname] = dirobj
+       end
+    end
+
+    #All our FuseFS methods follow the same pattern...
     def pathmethod(method,nosubdir, path,*args)
       base,rest = split_path(path)
       case
@@ -136,7 +162,19 @@ module FuseFS
         yield(base,*args)
       when @subdirs.has_key?(base)
         #base is a subdirectory, pass it on if we can
-        @subdirs[base].respond_to?(method) ? @subdirs[base].send(method,rest,*args) : nosubdir
+        begin
+            @subdirs[base].respond_to?(method) ? @subdirs[base].send(method,rest,*args) : nosubdir
+        rescue ArgumentError
+            #can_mkdir,mkdir
+            if *args.pop.nil?
+               #possibly a default arg, try sending again with one fewer arg
+               @subdirs[base].send(method,rest,*args)
+            else
+                #definitely not a default arg, reraise
+                Kernel.raise
+            end
+                 
+        end
       else
         return nosubdir
       end

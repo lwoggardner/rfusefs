@@ -456,13 +456,13 @@ module FuseFS
     
     def rename(from,to)
       if @root.rename(from,to)
-        #nothing to do
-      elsif @root.file?(from) && @root.can_write(to) &&  @root.can_delete(from)
+        # nothing to do
+      elsif @root.file?(from) && @root.can_write?(to) &&  @root.can_delete?(from)
         contents = @root.read_file(from)
         @root.write_to(to,contents)
         @root.delete(from)
       else
-        raise Errno:EACCES
+        raise Errno::EACCES.new("Unable to move directory #{from}")
       end
     end
     

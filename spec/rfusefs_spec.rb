@@ -328,6 +328,56 @@ describe FuseFS do
 	        @fuse.rmdir(TEST_DIR)
 	    end
 	end
+	
+	context "touching files" do
+        it "should call :touch in response to utime" do
+            @mock_fuse.should_receive(:touch).with(TEST_FILE,220)
+            @fuse.utime(TEST_FILE,100,220)
+        end  
+    end
+    
+    context "renaming files" do
+        before(:each) do
+          @oldfile = "/aPath/oldFile"
+          @newfile = "/aNewFile"
+          @mock_fuse.stub!(:file?).with(@oldfile).and_return(true)
+          @mock_fuse.stub!(:directory?).with(@oldfile).and_return(false)
+        end
+        it "should raise EACCES unless :can_write? the new file" do
+            @mock_fuse.stub!(:can_delete?).with(@oldfile).and_return(true)
+            @mock_fuse.should_receive(:can_write?).with(@newfile).and_return(false)
+            lambda {@fuse.rename(@oldfile,@newfile)}.should raise_error(Errno::EACCES)
+        end
+
+        it "should raise EACCES unless :can_delete the old file" do
+            @mock_fuse.stub!(:can_write?).with(@newfile).and_return(true)
+            @mock_fuse.should_receive(:can_delete?).with(@oldfile).and_return(false)
+            lambda {@fuse.rename(@oldfile,@newfile)}.should raise_error(Errno::EACCES)
+        end
+
+        it "should copy and delete files" do
+            @mock_fuse.stub!(:can_write?).with(@newfile).and_return(true)
+            @mock_fuse.stub!(:can_delete?).with(@oldfile).and_return(true) 
+            @mock_fuse.should_receive(:read_file).with(@oldfile).and_return("some contents\n")
+            @mock_fuse.should_receive(:write_to).with(@newfile,"some contents\n")
+            @mock_fuse.should_receive(:delete).with(@oldfile)
+            @fuse.rename(@oldfile,@newfile)
+        end
+
+        it "should not copy and delete files if fs responds_to? :rename" do
+            @mock_fuse.should_receive(:rename).with(@oldfile,@newfile).and_return(true)
+            @fuse.rename(@oldfile,@newfile)
+        end
+
+        it "should raise EACCES if moving a directory and rename not supported" do
+            @mock_fuse.stub!(:file?).with(@oldfile).and_return(false)
+            @mock_fuse.stub!(:directory?).with(@oldfile).and_return(true)
+            @mock_fuse.stub!(:can_write?).with(@newfile).and_return(true)
+            @mock_fuse.stub!(:can_delete?).with(@oldfile).and_return(true) 
+            lambda{@fuse.rename(@oldfile,@newfile)}.should raise_error(Errno::EACCES)
+        end
+
+    end
 
   end
   
