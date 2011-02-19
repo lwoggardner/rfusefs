@@ -1,20 +1,41 @@
 = rfusefs
 
-https://github.com/lwoggardner/rfusefs
+* https://github.com/lwoggardner/rfusefs
 
-== DESCRIPTION:
+== DESCRIPTION
 
-  RFuseFS is a port of the FuseFS library aimed at allowing Ruby programmers to
-  quickly and easily create virtual filesystems with little more than a few lines
-  of code.
+RFuseFS is a port of the FuseFS[http://rubyforge.org/projects/fusefs]
+library aimed at allowing Ruby programmers to quickly and easily create
+virtual filesystems with little more than a few lines of code.
 
-  RFuseFS is api compatible with the original FuseFS (0.7.0).
+RFuseFS is api compatible with {FuseFS (0.7.0)}[https://github.com/duairc/fusefs] 
 
-  See API.txt for full details 
+== SYNOPSIS
 
-== SYNOPSIS:
+FuseFS provides a layer of abstraction to a programmer who wants to create a
+virtual filesystem via FUSE.
 
-Here's the hello world filesystem in 14 LOC
+FuseFS programs consist of two parts:
+
+1. FuseFS, which is defined in 'rfusefs.rb'
+2. An object that defines a virtual directory by implementing some
+   subset of the {FuseFS::API} 
+
+To write a FuseFS program, you must:
+
+* Define and create a Directory object that responds to the methods required
+  by FuseFS for its desired use.
+
+* Call FuseFS.start <mountpoint> <virtualdir>
+  where <mountpoint> is a real directory on your filesystem
+  and <virtualdir> with an object defining your virtual directory.
+
+To use the filesystem open up your favourite file browser/terminal and
+explore the contents under <mountpoint>
+
+Happy Filesystem Hacking!
+
+=== the hello world filesystem in 14 LOC
 
   require 'rfusefs'
 
@@ -42,8 +63,8 @@ See other possibilities in /samples
 * Ruby (>=1.8)
 * rfuse_ng (>=0.5.0)
 
-     Note that 0.4.0 is the current gem version of rfuse_ng - see rfuse_ng directory
-     for the required patches. Here's hoping they'll be incorporated Real Soon Now.
+  Note that 0.4.0 is the current gem version of rfuse_ng - see rfuse_ng directory
+  for the required patches. Here's hoping they'll be incorporated Real Soon Now.
 
 == INSTALL:
 
@@ -62,9 +83,9 @@ and generate the RDoc.
 
 (The MIT License)
 
-Copyright (c) 2005 Greg Millam. (FuseFS)
-Copyright (c) 2009 Kyle Maxwell. (FuseFS)
-Copyright (c) 2011 Grant Gardner. (RFuseFS)
+* Copyright (c) 2005 Greg Millam. (FuseFS)
+* Copyright (c) 2009 Kyle Maxwell. (FuseFS)
+* Copyright (c) 2011 Grant Gardner. (RFuseFS)
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the

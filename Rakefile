@@ -8,7 +8,7 @@ require 'hoe'
 # Hoe.plugin :inline
 # Hoe.plugin :racc
 # Hoe.plugin :rubyforge
-# Hoe.plugin :yard
+Hoe.plugin :yard
 Hoe.plugin :git
 
 Hoe.spec 'rfusefs' do

@@ -1,9 +1,11 @@
 
-No option in FuseFS for fuse library opts
-Gemify
+= TODO
 
-Specs for metadir
-More real FUSE based tests
+* No option in FuseFS for fuse library opts
+
+* Specs for metadir
+
+* More real FUSE based tests
 
 
 

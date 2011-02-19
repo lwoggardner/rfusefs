@@ -1,6 +1,5 @@
 lib/rfusefs.rb
-API.txt
-README.txt
+README.rdoc
 Rakefile
 TODO.txt
 lib/fusefs.rb
