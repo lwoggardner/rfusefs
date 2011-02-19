@@ -1,0 +1,8 @@
+=== 0.8.0 / 2011-02-19
+
+* Initial port from fusefs
+
+  * Improved raw methods
+  * new "times" api for including atime,mtime,ctime in stat results
+  * metadir allow mv directories
+

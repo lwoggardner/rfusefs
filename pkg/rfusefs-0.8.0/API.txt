@@ -1,0 +1,244 @@
+RFuseFS API DOCUMENT
+===================
+
+Last updated: 2011.02.18 by Grant Gardner
+
+WARNING
+-------
+
+If there are any open files or shells with 'pwd's in your filesystem
+when you exit your ruby script, fuse *might* not actually be unmounted. To
+unmount a path yourself, run the command:
+
+  fusermount -u <path>
+
+to unmount any FUSE filesystems mounted at <path>.
+
+FuseFS API
+----------
+
+Note: The module is FuseFS as this is a direct replacement. Much of this document
+is derived from the original FuseFS version and API differences are noted
+explicitly
+
+FuseFS provides a layer of abstraction to a programmer who wants to create a
+virtual filesystem via FUSE.
+
+FuseFS programs consist of two parts:
+
+1) FuseFS, which is defined in 'rfusefs.rb'
+2) An object that defines a virtual directory. This must define a number of
+   methods (given below, in "Directory Methods" section) in order to be
+   usable.
+
+To write a FuseFS program, you must:
+
+* Define and create a Directory object that responds to the methods required
+  by FuseFS for its desired use.
+
+* Call FuseFS.start <mountpoint> <virtualdir> 
+  where <mountpoint> is a real directory on your filesystem
+  and <virtualdir> with an object defining your virtual directory.
+
+To use the filesystem open up your favourite file browser/terminal and
+explore the contents under <mountpoint>
+
+Happy Filesystem Hacking!
+
+Hello World FS
+--------------
+helloworld.rb
+
+This creates a filesystem that contains exactly 1 file: "hello.txt" that, when
+read, returns "Hello, World!"
+
+This is not writable to, and contains no other files.
+
+  require 'rfusefs'
+
+  class HelloDir
+    def contents(path)
+      ['hello.txt']
+    end
+    def file?(path)
+      path -- '/hello.txt'
+    end
+    def read_file(path)
+      "Hello, World!\n"
+    end
+  end
+
+  hellodir = HelloDir.new
+  
+  FuseFS.start(ARGV.shift,hellodir)
+
+
+Directory Methods
+-----------------
+
+Without any methods defined, any object is by default a content-less,
+file-less directory.
+
+The following are necessary for most or all filesystems:
+
+  Directory listing and file type methods:
+
+    :contents(path)     # Return an array of file and dirnames within <path>.
+    :directory?(path)   # Return true if <path> is a directory.
+    :file?(path)        # Return true if <path> is a file (not a directory).
+    :executable?(path)  # Return true if <path> is an executable file.
+    :size(path)         # Return the file size. Necessary for apache, xmms,
+                          etc.
+    :times(path)        # *RFuseFS* Return the [ atime, mtime, ctime] as 
+                          3 element array. Good for rsync etc...
+
+  File reading:
+
+    :read_file(path)    # Return the contents of the file at location <path>.
+
+The following are only necessary if you want a filesystem that can be modified
+by the user. Without defining any of the below, the contents of the filesystem
+are automatically read-only.
+
+  File manipulation:
+
+    :can_write?(path)   # Return true if the user can write to file at <path>.
+    :write_to(path,str) # Write the contents of <str> to file at <path>.
+
+    :can_delete?(path)  # Return true if the user can delete file at <path>.
+    :delete(path)       # Delete the file at <path>
+
+  Directory manipulation:
+
+    :can_mkdir?(path)   # Return true if user can make a directory at <path>.
+    :mkdir(path)        # Make a directory at path.
+    :can_rmdir?(path)   # Return true if user can remove directory at <path>.
+    :rmdir(path)        # Remove it.
+
+  Neat "toy":
+
+    :touch(path,modtime) # Called when a file is 'touch'd or otherwise has
+                          their timestamp explicitly modified. 
+
+If you want a lower level control of your file, then you can use:
+ 
+    :raw_open(path,mode) 
+    			# mode is "r" "w" or "rw", with "a" if the file
+                          is opened for append. Under RFuseFS the value
+                          returned from raw is passed back in to the methods
+                          below.
+                             
+    :raw_truncate(path,off,[raw])
+    			# *RFuseFS* Truncate file at path to offset bytes
+    			# Called immediately after a file is opened for write
+    			# without append or client otherwise wants to
+    			# truncate an open file
+    			# This method can also be invoked (without raw)
+    			# outside of an open file context
+    			# see FUSE:truncate v ftruncate
+                             
+    :raw_read(path,off,sz,[raw])
+                        # Read sz bites from file at path starting at
+                          offset off
+                             
+    :raw_write(path,off,sz,buf,[raw])
+    			# Write sz bites of buf to path starting at
+                          offset off
+                                  
+    :raw_close(path,[raw])
+    			# Close the file.
+
+    :rename(from_path,to_path)
+                # move a file or directory
+                # return false to fallback to copy/delete file method
+
+Method call flow
+================
+
+Fuse itself will generally call "getattr" and validate results
+before any other operations.
+
+Getattr (stat)
+  :directory? is checked first
+        write permissions set from :can_write? ._rfusefs_check_ 
+        OR :can_mkdir? ._rfusefs_check_
+         
+  :file? will be checked before
+        :can_write?,:executable?,:size are called to fill out details
+
+  :times is called in either case to retrieve atime,mtime,ctime values
+
+List contents:
+  Fuse confirms path is a directory (getattr) before we call :contents
+  
+  Fuse will generally go on next to getattr for each directory entry
+
+Read file:
+
+  Fuse confirms path is a file before we call :read_file
+
+Writing files:
+
+  Fuse confirms path for the new file is a directory
+
+  :can_write? will be checked at file open
+  :write_to is called at file close
+
+Deleting files:
+
+  Fuse confirms path is a file before we call :can_delete? then :delete
+
+Renaming files:
+
+  Fuse confirms files or directory move. FuseFS checks :file?(from), :can_write?(to), :can_delete?(from)
+  then executes :read_file(from), :write_to(to), :delete(from)
+
+Creating dirs:
+
+  Fuse confirms parent is a directory before we call :can_mkdir? then :mkdir
+
+Deleting dirs:
+
+  Fuse confirms path is a directory before we call :can_rmdir? then :rmdir
+
+FuseDir
+----------
+
+FuseFS::FuseDir defines the methods "split_path" and "scan_path". You
+should typically inherit from FuseDir in your own directory objects.
+
+  base, rest = split_path(path)   # base is the file or directory in the
+                                    current context. rest is either nil,
+                                    or a path that is requested. If 'rest'
+                                    exists, then you should recurse the paths.
+  base, *rest = scan_path(path)   # scan_path returns an array of all
+                                    directory and file elements given by
+                                    <path>. This is useful when you're
+                                    encapsulating an entire fs into one
+                                    object.
+
+MetaDir
+-------
+
+MetaDir is a full in memory filesystem defined with hashes. It is writable, and the user
+can create and edit files within it, as well as the programmer.
+
+Usage:
+  root = MetaDir.new
+
+  root.mkdir("/hello")
+  root.write_to("/hello/world","Hello, World!\n")
+  root.write_to("/hello/everybody","Hello, Everybody!\n")
+
+  FuseFS.start(mntpath,root)
+
+Because MetaDir is fully recursive, you can mount your own or other defined
+directory structures under it. For example, to mount a dictionary filesystem
+(as demonstrated in samples/dictfs.rb), use:
+
+  root.mkdir("/dict",DictFS.new)
+
+Conclusion
+----------
+
+Enjoy using RFuseFS!

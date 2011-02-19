@@ -1,0 +1,9 @@
+
+No option in FuseFS for fuse library opts
+Gemify
+
+Specs for metadir
+More real FUSE based tests
+
+
+
