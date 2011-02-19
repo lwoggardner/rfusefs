@@ -199,7 +199,7 @@ module FuseFS
             @subdirs[base].respond_to?(method) ? @subdirs[base].send(method,rest,*args) : nosubdir
         rescue ArgumentError
             #can_mkdir,mkdir
-            if *args.pop.nil?
+            if args.pop.nil?
                #possibly a default arg, try sending again with one fewer arg
                @subdirs[base].send(method,rest,*args)
             else
