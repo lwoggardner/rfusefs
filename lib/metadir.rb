@@ -1,6 +1,14 @@
 module FuseFS	  
-  
+
+# Defines convenience methods for path manipulation. You should typically inherit
+# from here in your own directory projects  
   class FuseDir
+    
+    #   base,rest = split_path(path) 
+    # @return [Array<String,String>] base,rest. base is the first directory in
+    #                                path, and rest is nil> or the remaining path.
+    #                                Typically if rest is not nil? you should 
+    #                                recurse the paths 
     def split_path(path)
       cur, *rest = path.scan(/[^\/]+/)
       if rest.empty?
@@ -9,12 +17,36 @@ module FuseFS
         [ cur, File.join(rest) ]
       end
     end
+
+    #   base,*rest = scan_path(path)
+    # @return [Array<String>] all directory and file elements in path. Useful
+    #                         when encapsulating an entire fs into one object
     def scan_path(path)
       path.scan(/[^\/]+/)
     end
   end
-	
+
+
+
+  # A full in-memory filesystem defined with hashes. It is writable and the user
+  # may create and edit files within it, as well as the programmer
+  # === Usage
+  #   root = Metadir.new()
+  #   root.mkdir("/hello")
+  #   root.write_to("/hello/world","Hello World!\n")
+  #   root.write_to("/hello/everybody","Hello Everyone!\n")
+  #
+  #   FuseFS.start(mntpath,root)
+  #
+  # Because Metadir is fully recursive, you can mount your own or other defined
+  # directory structures under it. For example, to mount a dictionsary filesystem
+  # (see samples/dictfs.rb), use:
+  #   
+  #   root.mkdir("/dict",DictFS.new())
+  # 
   class MetaDir < FuseDir
+
+    # atime,mtime,ctime defaults
   	INIT_TIMES = Array.new(3,Time.now.to_i)
     @@pathmethods = { }
     
@@ -22,6 +54,7 @@ module FuseFS
       @subdirs  = Hash.new(nil)
       @files    = Hash.new(nil)
     end
+
     
     def directory?(path)
       pathmethod(:directory?,false,path) do |filename|
