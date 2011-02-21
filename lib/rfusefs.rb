@@ -242,7 +242,7 @@ module FuseFS
       # Delete the file at path
       def delete(path);end
 
-      # @eturn [Boolean] true if user can make a directory at path
+      # @return [Boolean] true if user can make a directory at path
       def can_mkdir?(path);end
 
       # Make a directory at path
