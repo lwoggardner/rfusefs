@@ -189,7 +189,7 @@ module FuseFS
     include TraceCalls if FuseFS::TRACE
     
     #If not implemented by our filesystem these values are returned
-    API_OPTIONAL_METHODS = {
+    API_METHODS = {
     :can_write? => false,
     :write_to => nil,
     :can_delete? => false,
@@ -220,8 +220,8 @@ module FuseFS
       #Define method missing for our filesystem
       #so we can just call all the API methods as required.
       def @root.method_missing(method,*args)
-        if API_OPTIONAL_METHODS.has_key?(method)
-          return API_OPTIONAL_METHODS[method]
+        if API_METHODS.has_key?(method)
+          return API_METHODS[method]
         else
           super
         end
