@@ -253,7 +253,7 @@ describe FuseFS do
     		@fuse.release(TEST_FILE,ffi)
    		
     	end
-    	
+        
     	it "should do sensible things for files opened RDWR"
     	
     end
@@ -313,8 +313,19 @@ describe FuseFS do
 	    
 	    it "should :delete without error if :can_delete?" do
 	       @mock_fuse.stub!(:can_delete?).with(TEST_FILE).and_return(true)
+           @mock_fuse.should_receive(:delete).with(TEST_FILE)
 	       @fuse.unlink(TEST_FILE)
 	    end
+
+        it "should remove entries created with mknod that have never been opened" do
+    		@mock_fuse.stub!(:file?).with(TEST_FILE).and_return(false)
+    		@mock_fuse.stub!(:directory?).with(TEST_FILE).and_return(false)
+    		@mock_fuse.stub!(:can_delete?).with(TEST_FILE).and_return(true)
+    		@mock_fuse.stub!(:can_write?).with(TEST_FILE).and_return(true)
+    		@fuse.mknod(TEST_FILE,FuseFS::Stat::S_IFREG | 0644,nil)
+            @fuse.unlink(TEST_FILE)
+            lambda {@fuse.getattr(TEST_FILE)}.should raise_error(Errno::ENOENT)
+        end
 	end
 	
 	context "deleting directories" do

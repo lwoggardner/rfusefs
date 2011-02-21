@@ -20,7 +20,7 @@ module TraceCalls
         define_method(method) do |*args, &block|
         	puts "==> #{ self }.#{ method }(#{ args.inspect })"
           result = method_object.bind(self).call(*args, &block)
-          puts "<== #{ self }.#{ method }() => #{ result.inspect }"
+          puts "<== #{ self }.#{ method }(#{args[0]}) => #{ result.inspect }"
           result
         end
       end

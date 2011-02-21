@@ -1,5 +1,5 @@
 require "rubygems"
-require 'fusefs'
+require 'rfusefs'
 
 include FuseFS
 
@@ -48,7 +48,6 @@ class DirLink
     end
   end
 end
-
 class Counter
   def initialize
     @counter = 0
@@ -93,9 +92,4 @@ root.write_to('/animal',Randwords.new('duck','dog','cat','duck billed platypus',
 
 root.mkdir("/#{ENV['USER']}",DirLink.new(ENV['HOME']))
 
-# Set the root FuseFS
-FuseFS.set_root(root)
-
-FuseFS.mount_under(dirname, 'nolocalcaches', *ARGV)
-
-FuseFS.run # This doesn't return until we're unmounted.
+FuseFS.start(dirname,root,'nolocalcaches', *ARGV)

@@ -440,7 +440,7 @@ module FuseFS
       unless @root.can_delete?(path)
         raise Errno::EACCES.new(path)
       end
-      
+      @created_files.delete(path) 
       @root.delete(path)
     end
     

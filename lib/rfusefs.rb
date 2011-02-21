@@ -137,8 +137,8 @@ module FuseFS
   end
   
   # Not supported in RFuseFS (yet). The original FuseFS had special handling for editor
-  # swap/backup files. Either turn this behaviour off in your editor or implement
-  # something for your filesystem
+  # swap/backup but this does not seem to be required, eg for the demo filesystems.
+  # If it is required it can be implemented in a filesystem
   def self.handle_editor(bool)
   	  #do nothing
   end
