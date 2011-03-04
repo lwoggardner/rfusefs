@@ -5,4 +5,5 @@
   * Improved raw methods
   * new "times" api for including atime,mtime,ctime in stat results
   * metadir allow mv directories
+  * includes PathMapperFS
 
