@@ -30,6 +30,12 @@ To write a FuseFS program, you must:
   where <mountpoint> is a real directory on your filesystem
   and <virtualdir> with an object defining your virtual directory.
 
+See samples under /samples and also the following starter classes
+
+* {FuseFS::MetaDir}
+* {FuseFS::DirLink}
+* {FuseFS::PathMapperFS}
+
 To use the filesystem open up your favourite file browser/terminal and
 explore the contents under <mountpoint>
 
@@ -54,8 +60,6 @@ Happy Filesystem Hacking!
   hellodir = HelloDir.new
   
   FuseFS.start(ARGV.shift,hellodir)
-
-See other possibilities in /samples
 
 == REQUIREMENTS:
 

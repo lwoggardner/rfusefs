@@ -12,6 +12,7 @@ Hoe.plugin :yard
 Hoe.plugin :git
 
 Hoe.spec 'rfusefs' do
+  self.readme_file="README.rdoc"
   developer('Grant Gardner', 'grant@lastweekend.com.au')
   extra_deps << [ 'rfuse_ng' , '>= 0.5.3' ]
 end
