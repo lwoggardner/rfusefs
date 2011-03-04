@@ -61,10 +61,7 @@ See other possibilities in /samples
 
 * FUSE (http://fuse.sourceforge.org)
 * Ruby (>=1.8)
-* rfuse_ng (>=0.5.0)
-
-  Note that 0.4.0 is the current gem version of rfuse_ng - see rfuse_ng directory
-  for the required patches. Here's hoping they'll be incorporated Real Soon Now.
+* rfuse_ng (>=0.5.3)
 
 == INSTALL:
 

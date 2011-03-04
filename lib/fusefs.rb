@@ -4,5 +4,5 @@ module FuseFS
 end
 
 require 'rfusefs'
-require 'metadir'
+require 'fusefs/metadir'
 

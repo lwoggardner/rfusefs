@@ -1,7 +1,6 @@
 # RFuseFS.rb
-
-require 'rfusefs-fuse'
-require 'metadir'
+#gem 'rfuse-ng' , "=0.4.0"
+require 'fuse/rfusefs-fuse'
 
 # This is FuseFS compatible module built over RFuse-NG
 
@@ -142,6 +141,33 @@ module FuseFS
   def self.handle_editor(bool)
   	  #do nothing
   end
+  
+  # Defines convenience methods for path manipulation. You should typically inherit
+  # from here in your own directory projects  
+  class FuseDir
+    
+    #   base,rest = split_path(path) 
+    # @return [Array<String,String>] base,rest. base is the first directory in
+    #                                path, and rest is nil> or the remaining path.
+    #                                Typically if rest is not nil? you should 
+    #                                recurse the paths 
+    def split_path(path)
+      cur, *rest = path.scan(/[^\/]+/)
+      if rest.empty?
+        [ cur, nil ]
+      else
+        [ cur, File::SEPARATOR + File.join(rest) ]
+      end
+    end
+    
+    #   base,*rest = scan_path(path)
+    # @return [Array<String>] all directory and file elements in path. Useful
+    #                         when encapsulating an entire fs into one object
+    def scan_path(path)
+      path.scan(/[^\/]+/)
+    end
+  end
+  
 
   # This class is equivalent to using Object.new() as the virtual directory
   # for target for FuseFS.start(). It exists only to document the API

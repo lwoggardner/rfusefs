@@ -13,6 +13,7 @@ Hoe.plugin :git
 
 Hoe.spec 'rfusefs' do
   developer('Grant Gardner', 'grant@lastweekend.com.au')
+  extra_deps << [ 'rfuse_ng' , '>= 0.5.3' ]
 end
 
 #We need to run the fusefs compatibility specs separately

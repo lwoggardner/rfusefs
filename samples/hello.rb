@@ -19,9 +19,6 @@ end
 if __FILE__ == $0	
 	require 'rfusefs'
 	hellodir = HelloDir.new
-	FuseFS.set_root( hellodir )
-
-	# Mount under a directory given on the command line.
-	FuseFS.mount_under ARGV.shift
-	FuseFS.run
+    mountpoint = ARGV.shift
+    FuseFS.start(mountpoint,hellodir)
 end
