@@ -1,14 +1,15 @@
 = rfusefs
 
+* https://rubygems.org/gems/rfusefs
 * https://github.com/lwoggardner/rfusefs
 
 == DESCRIPTION
 
-RFuseFS is a port of the FuseFS[http://rubyforge.org/projects/fusefs]
+RFuseFS is a port of the FuseFS[https://rubygems.org/gems/rfusefs]
 library aimed at allowing Ruby programmers to quickly and easily create
 virtual filesystems with little more than a few lines of code.
 
-RFuseFS is api compatible with {FuseFS (0.7.0)}[https://github.com/duairc/fusefs] 
+RFuseFS is api compatible with FuseFS (0.7.0)
 
 == SYNOPSIS
 

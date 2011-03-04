@@ -5,7 +5,7 @@ require 'fuse/rfusefs-fuse'
 # This is FuseFS compatible module built over RFuse-NG
 
 module FuseFS
-  VERSION = "0.8.0"
+  VERSION = "0.8.1"
   @mounts = { }
 
   # Start the FuseFS root at mountpoint with opts. *RFuseFS* extension
