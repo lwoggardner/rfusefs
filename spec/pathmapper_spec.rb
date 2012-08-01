@@ -53,7 +53,7 @@ describe FuseFS::PathMapperFS do
 		    @mountpoint = Pathname.new(Dir.tmpdir) + "rfusefs-pathmapper"
 		    @mountpoint.mkdir unless @mountpoint.directory?
             @pathmapFS.use_raw_file_access = true
-            FuseFS.mount(@mountpoint,@pathmapFS)
+            FuseFS.mount(@pathmapFS,@mountpoint)
             sleep(1)
         end
 
@@ -74,6 +74,7 @@ describe FuseFS::PathMapperFS do
             mappedstat = hellopath.stat
             realstat = realpath.stat
             mappedstat.size.should == realstat.size
+            puts "#{realstat.atime.to_f},#{mappedstat.atime.to_f}"
             mappedstat.atime.should == realstat.atime 
             mappedstat.mtime.should == realstat.mtime
             mappedstat.ctime.should == realstat.ctime

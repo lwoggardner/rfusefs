@@ -154,17 +154,14 @@ describe FuseFS::MetaDir do
         @metadir.mkdir("/test")
         @metadir.mkdir("/test/fusefs",@fusefs)
       end
-     
-      api_methods = FuseFS::RFuseFSAPI::API_METHODS.dup
-      #These methods take more than just a path as an argument so we test them
-      #explicitly below
-      api_methods.delete(:write_to)
-      api_methods.delete(:mkdir)
-      api_methods.delete(:rename)
-      api_methods.each_key() do |method|
+
+      api_methods = [:directory?, :file?, :contents, :executable?, :size, :times, :read_file, :can_write?,  :can_delete?, :delete, :can_mkdir?, :can_rmdir?, :rmdir, :touch, :raw_open, :raw_truncate, :raw_read, :raw_write, :raw_close]
+      api_methods.each do |method|
           it "should pass on #{method}" do
-             @fusefs.should_receive(method).with("/path/to/file").and_return("anything")
-             @metadir.send(method,"/test/fusefs/path/to/file")
+             arity = FuseFS::FuseDir.instance_method(method).arity().abs - 1
+             args = Array.new(arity) { |i| i }
+             @fusefs.should_receive(method).with("/path/to/file",*args).and_return("anything")
+             @metadir.send(method,"/test/fusefs/path/to/file",*args)
           end
       end
      
@@ -227,11 +224,12 @@ describe FuseFS::MetaDir do
 		tmpdir = Pathname.new(Dir.tmpdir) + "rfusefs"
 		tmpdir.mkdir unless tmpdir.directory?
 		@mountpoint = tmpdir + "metadir_spec"
+        puts "#{@mountpoint}"
 		@mountpoint.mkdir unless @mountpoint.directory?
 		@metadir = FuseFS::MetaDir.new()
         @metadir.mkdir("/test")
         @metadir.write_to("/test/hello.txt","Hello World!\n")
-		FuseFS.mount(@mountpoint,@metadir)
+		FuseFS.mount(@metadir,@mountpoint)
         @testdir = (@mountpoint + "test")
         @testfile = (@testdir + "hello.txt")
 		#Give FUSE some time to get started 

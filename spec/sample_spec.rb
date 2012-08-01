@@ -1,7 +1,8 @@
+require 'spec_helper'
 require 'rfusefs'
 require 'tmpdir'
 require 'pathname'
-require 'samples/hello'
+require 'hello'
 
 describe "Access Hello World sample from Ruby file operations" do
 	before(:all) do
@@ -10,7 +11,7 @@ describe "Access Hello World sample from Ruby file operations" do
 		@mountpoint = tmpdir + "sample_spec"
 		@mountpoint.mkdir unless @mountpoint.directory?
 		hello = HelloDir.new()
-		FuseFS.mount(@mountpoint,hello)
+		FuseFS.mount(hello,@mountpoint)
 		#Give FUSE some time to get started 
 		sleep(1)
 	end

@@ -1,7 +1,7 @@
 module FuseFS
 
   # A FuseFS over an existing directory 
-  class DirLink
+  class DirLink < FuseDir
 
     def initialize(dir)
       File.directory?(dir) or raise ArgumentError, "DirLink.initialize expects a valid directory!"

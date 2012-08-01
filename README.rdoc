@@ -33,6 +33,7 @@ To write a FuseFS program, you must:
 
 See samples under /samples and also the following starter classes
 
+* {FuseFS::FuseDir}
 * {FuseFS::MetaDir}
 * {FuseFS::DirLink}
 * {FuseFS::PathMapperFS}
@@ -59,14 +60,14 @@ Happy Filesystem Hacking!
   end
 
   hellodir = HelloDir.new
-  
-  FuseFS.start(ARGV.shift,hellodir)
+
+  FuseFS.start(hellodir,*ARGV)
 
 == REQUIREMENTS:
 
 * FUSE (http://fuse.sourceforge.org)
 * Ruby (>=1.8)
-* rfuse_ng (>=0.5.3)
+* rfuse-ng (>=0.5.3)
 
 == INSTALL:
 

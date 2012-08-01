@@ -1,3 +1,9 @@
+SPEC_DIR = File.dirname(__FILE__)
+lib_path = File.expand_path("#{SPEC_DIR}/../samples")
+puts lib_path
+$LOAD_PATH.unshift lib_path unless $LOAD_PATH.include?(lib_path)
+
+
 require 'rfusefs'
 require 'fusefs/metadir'
 require 'fcntl'
@@ -16,7 +22,7 @@ module RFuseFSHelper
 	end
 	
 	def filetype(mode)
-	    return (mode & FuseFS::Stat::S_IFMT)
+	    return (mode & RFuse::Stat::S_IFMT)
 	end
 
     FuseContext = Struct.new(:uid,:gid)    
