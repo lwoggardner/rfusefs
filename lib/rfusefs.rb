@@ -89,30 +89,7 @@ module FuseFS
     #       you cannot access your filesystem using ruby File operations.
     # @note RFuseFS extension
     def FuseFS.run
-        unless @fuse
-            raise "fuse is not mounted"
-        end
-
-        begin
-            io = IO.for_fd(@fuse.fd)
-        rescue Errno::EBADF
-            raise "fuse not mounted"
-        end
-
-        @running = true
-        while @running
-            begin
-                #We wake up every 2 seconds to check we are still running.
-                IO.select([io],[],[],2)
-                if  @fuse.process() < 0
-                    @running = false
-                end    	    
-            rescue Errno::EBADF
-                @running = false
-            rescue Interrupt
-                #do nothing
-            end    		
-        end
+        @fuse.loop
     end
 
     #  Exit the run loop and teardown FUSE   
