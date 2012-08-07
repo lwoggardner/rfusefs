@@ -5,7 +5,7 @@
 
 == DESCRIPTION
 
-RFuseFS is a port of the FuseFS[https://rubygems.org/gems/rfusefs]
+RFuseFS is a port of the FuseFS[http://rubygems.org/gems/fusefs/]
 library aimed at allowing Ruby programmers to quickly and easily create
 virtual filesystems with little more than a few lines of code.
 
@@ -19,17 +19,19 @@ virtual filesystem via FUSE.
 FuseFS programs consist of two parts:
 
 1. FuseFS, which is defined in 'rfusefs.rb'
-2. An object that defines a virtual directory by implementing some
-   subset of the {FuseFS::API} 
+2. An object that defines a virtual directory by subclassing {FuseFS::FuseDir}
 
 To write a FuseFS program, you must:
 
 * Define and create a Directory object that responds to the methods required
   by FuseFS for its desired use.
 
-* Call FuseFS.start <mountpoint> <virtualdir>
-  where <mountpoint> is a real directory on your filesystem
-  and <virtualdir> with an object defining your virtual directory.
+* Call
+       
+       FuseFS.start <virtualdir> <mountpoint> [mount_options]
+
+  where <virtualdir> with an object defining your virtual directory.
+  and <mountpoint> is a real directory on your filesystem
 
 See samples under /samples and also the following starter classes
 
@@ -61,13 +63,14 @@ Happy Filesystem Hacking!
 
   hellodir = HelloDir.new
 
+  # Usage: #{$0} mountpoint [mount_options]
   FuseFS.start(hellodir,*ARGV)
 
 == REQUIREMENTS:
 
 * FUSE (http://fuse.sourceforge.org)
-* Ruby (>=1.8)
-* rfuse-ng (>=0.5.3)
+* Ruby (>=1.9)
+* rfuse (~> 1.0)
 
 == INSTALL:
 
@@ -77,10 +80,10 @@ Happy Filesystem Hacking!
 
 After checking out the source, run:
 
-  $ rake newb
+  $ bundle install # install dependencies
+  $ rake spec # run tests
+  $ rake yard # generate docs
 
-This task will install any missing dependencies, run the tests/specs,
-and generate the RDoc.
 
 == LICENSE:
 
@@ -88,7 +91,7 @@ and generate the RDoc.
 
 * Copyright (c) 2005 Greg Millam. (FuseFS)
 * Copyright (c) 2009 Kyle Maxwell. (FuseFS)
-* Copyright (c) 2011 Grant Gardner. (RFuseFS)
+* Copyright (c) 2012 Grant Gardner. (RFuseFS)
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the

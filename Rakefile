@@ -1,15 +1,14 @@
 # -*- ruby -*-
-require 'rubygems'
-require 'hoe'
+require "bundler/gem_tasks"
+require 'yard'
+require 'rspec/core/rake_task'
 
-Hoe.plugin :yard
-Hoe.plugin :git
-
-Hoe.spec 'rfusefs' do
-  self.readme_file="README.rdoc"
-  developer('Grant Gardner', 'grant@lastweekend.com.au')
-  extra_deps << [ 'rfuse' , '>= 0.6.0' ]
+YARD::Rake::YardocTask.new do |t|
+        # Need this because YardocTask does not read the gemspec
+        t.files   = ['lib/**/*.rb', '-','History.rdoc']   # optional
 end
+
+RSpec::Core::RakeTask.new(:spec)
 
 desc "FuseFS compatibility specs"
 RSpec::Core::RakeTask.new("spec:fusefs") do |t|

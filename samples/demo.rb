@@ -1,21 +1,11 @@
 require "rubygems"
 require 'rfusefs'
+require 'fusefs/metadir'
+require 'fusefs/dirlink'
 
 include FuseFS
 
 root = MetaDir.new
-
-# if (ARGV.size != 1)
-#   puts "Usage: #{$0} <directory>"
-#   exit
-# end
-
-dirname = ARGV.shift
-
-unless File.directory?(dirname)
-  puts "Usage: #{$0} <directory>"
-  exit
-end
 
 class Counter
   def initialize
@@ -59,6 +49,11 @@ root.write_to('/counter',Counter.new)
 root.write_to('/color',Randwords.new('red','blue','green','purple','yellow','bistre','burnt sienna','jade'))
 root.write_to('/animal',Randwords.new('duck','dog','cat','duck billed platypus','silly fella'))
 
-root.mkdir("/#{ENV['USER']}",DirLink.new(ENV['HOME']))
+root.mkdir("/#{ENV['USER']}",FuseFS::DirLink.new(ENV['HOME']))
 
-FuseFS.start(dirname,root,'nolocalcaches', *ARGV)
+unless ARGV.length > 0 && File.directory?(ARGV[0])
+  puts "Usage: #{$0} <mountpoint> <mountoptions>"
+  exit
+end
+
+FuseFS.start(root, *ARGV)

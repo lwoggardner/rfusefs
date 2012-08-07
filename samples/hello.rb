@@ -19,6 +19,5 @@ end
 if __FILE__ == $0	
 	require 'rfusefs'
 	hellodir = HelloDir.new
-    mountpoint = ARGV.shift
-    FuseFS.start(mountpoint,hellodir)
+    FuseFS.start(hellodir,*ARGV)
 end

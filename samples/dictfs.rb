@@ -1,10 +1,10 @@
 # dictfs.rb
-#
 
 require "rubygems"
 require 'fusefs'
 include FuseFS
 
+#TODO: GG Don't know which "dict" this was referring to
 require 'dict'
 
 class DictFS < FuseFS::FuseDir
@@ -61,24 +61,14 @@ that file up on dict.org!
 end
 
 if (File.basename($0) == File.basename(__FILE__))
-  if (ARGV.size != 1)
-    puts "Usage: #{$0} <directory>"
-    exit
-  end
-
-  dirname = ARGV.shift
-
-  unless File.directory?(dirname)
-    puts "Usage: #{dirname} is not a directory."
+  unless (ARGV.length > 0 && File.directory?(ARGV[0]))
+    puts "Usage: #{$0} <mountpoint> <mount_options>"
     exit
   end
 
   root = DictFS.new
 
   # Set the root FuseFS
-  FuseFS.set_root(root)
+  FuseFS.start(root,*ARGV)
 
-  FuseFS.mount_under(dirname)
-
-  FuseFS.run # This doesn't return until we're unmounted.
 end

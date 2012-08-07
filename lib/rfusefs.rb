@@ -1,17 +1,17 @@
 # RFuseFS.rb
 require 'fuse/fusedir'
 require 'fuse/rfusefs-fuse'
+require 'rfusefs/version'
 
 # This is FuseFS compatible module built over RFuse
 
 module FuseFS
-    VERSION = "0.8.1"
     @mounts = { }
 
     # Start the FuseFS root at mountpoint with opts. 
     # @param [Object] root see {set_root}
     # @param mountpoint [String] {mount_under}
-    # @param [String...] args FUSE mount options see {mount_under}
+    # @param [String...] opts FUSE mount options see {mount_under}
     # @note RFuseFS extension
     # @return [void]
     def FuseFS.start(root,mountpoint,*opts)
@@ -20,7 +20,7 @@ module FuseFS
         Signal.trap("INT") { FuseFS.exit() }
         FuseFS.set_root(root)
         FuseFS.mount_under(mountpoint,*opts)
-        FuseFS.run()
+        FuseFS.run
         FuseFS.unmount()
     end
 
@@ -56,7 +56,7 @@ module FuseFS
             end
         else
             #Local unmount, make sure we only try to unmount once
-            if @fuse
+            if @fuse && @fuse.mounted?
                 print "Unmounting #{@fuse.mountname}\n"
                 @fuse.unmount()
             end
@@ -73,7 +73,7 @@ module FuseFS
 
     # This will cause FuseFS to virtually mount itself under the given path. {set_root} must have
     # been called previously.
-    # @param [String] path an existing directory where the filesystem will be virtually mounted
+    # @param [String] mountpoint an existing directory where the filesystem will be virtually mounted
     # @param [Array<String>] args
     #  These are as expected by the "mount" command. Note in particular that the first argument
     #  is expected to be the mount point. For more information, see http://fuse.sourceforge.net
@@ -89,7 +89,7 @@ module FuseFS
     #       you cannot access your filesystem using ruby File operations.
     # @note RFuseFS extension
     def FuseFS.run
-        @fuse.loop
+        @fuse.loop if @fuse.mounted? 
     end
 
     #  Exit the run loop and teardown FUSE   
@@ -118,6 +118,7 @@ module FuseFS
     # Not supported in RFuseFS (yet). The original FuseFS had special handling for editor
     # swap/backup but this does not seem to be required, eg for the demo filesystems.
     # If it is required it can be implemented in a filesystem
+    # @deprecated
     def self.handle_editor(bool)
         #do nothing
     end

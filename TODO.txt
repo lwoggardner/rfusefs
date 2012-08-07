@@ -1,7 +1,6 @@
 
 = TODO
 
-* No option in FuseFS for fuse library opts
-
+ Fix (or remove) samples
 
 

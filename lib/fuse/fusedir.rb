@@ -186,7 +186,7 @@ module FuseFS
         # @param [Fixnum] size
         # @param [Object] raw the filehandle returned by {#raw_open}
         # @abstract FuseFS api
-        def raw_read(path,off,size,raw=nil);end
+        def raw_read(path,offset,size,raw=nil);end
 
         # Write _sz_ bytes from file at path (or filehandle raw) starting at offset off
         # @abstract FuseFS api
