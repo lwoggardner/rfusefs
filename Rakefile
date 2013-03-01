@@ -15,4 +15,5 @@ RSpec::Core::RakeTask.new("spec:fusefs") do |t|
   t.pattern = 'spec-fusefs/**/*_spec.rb'
 end
 
+task :default => ["spec","spec:fusefs"]
 # vim: syntax=ruby
