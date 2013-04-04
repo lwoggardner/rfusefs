@@ -30,11 +30,6 @@ module RFuseFSHelper
        FuseContext.new(uid,gid)
     end
 
-    def pathmap(real_file,mapped_path)
-       File.open(real_file.to_s,"w") do |f|
-            f << mapped_path
-       end
-    end
 
     def mktmpdir(name)
 		tmpdir = Pathname.new(Dir.tmpdir) + "rfusefs"

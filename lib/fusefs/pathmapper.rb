@@ -12,10 +12,10 @@ module FuseFS
             when "ra"
                 "r" #not really sensible..
             when "rw"
-                "w+"
+                "r+"
             when "rwa"
                 "a+"
-            when
+            when "w"
                 "w"
             when "wa"
                 "a"
@@ -26,7 +26,7 @@ module FuseFS
         #See #mapDirectory
         def PathMapperFS.create(dir,options={ },&block)
             pm_fs = PathMapperFS.new(options)
-            pm_fs.mapDirectory(dir) do |file|
+            pm_fs.map_directory(dir) do |file|
                 block.call(file)
             end
             return pm_fs
@@ -41,26 +41,28 @@ module FuseFS
         # Adds new_path to our list of mapped files
         #
         # Returns a hash entry which stores the real_path under the :pm_real_path key.
-        def mapFile(real_path,new_path)
+        def map_file(real_path,new_path)
             #split path into components 
-            components = new_path.scan(/[^\/]+/)
+            components = new_path.to_s.scan(/[^\/]+/)
 
             #create a hash of hashes to represent our directory structure
             new_file = components.inject(@root) { |directory, file|
                 directory[file] ||= Hash.new()
             }
-            new_file[:pm_real_path] = real_path
+            new_file[:pm_real_path] = real_path.to_s
             return new_file
         end
+        alias :mapFile :map_file
 
         # Convenience method to recursively map all files according to the given block
-        def mapDirectory(*dirs)
+        def map_directory(*dirs)
             require 'find'
             Find.find(*dirs) do |file|
                 new_path = yield file
-                mapFile(file,new_path) if new_path
+                map_file(file,new_path) if new_path
             end
         end
+        alias :mapDirectory :map_directory
 
         # Takes a mapped file name and returns the original real_path
         def unmap(path)
@@ -99,10 +101,9 @@ module FuseFS
             @allow_write && file?(path)
         end
 
-        # TODO: This can't possibly work- the path is not unmapped
-        # and we don't open the file for writing
+        # See FuseFS API.txt
         def write_to(path,contents)
-            File.open(path) do |f|
+            File.open(unmap(path),"w") do |f|
                 f.print(contents)
             end
         end
@@ -132,7 +133,7 @@ module FuseFS
 
             return false unless @use_raw_file_access
 
-            return false if mode.include?("w") && (!@allow_writes)
+            return false if mode.include?("w") && (!@allow_write)
 
             @openfiles ||= Hash.new() unless rfusefs
 
@@ -164,7 +165,7 @@ module FuseFS
         # See (R)FuseFS API.txt					
         def raw_write(path,offset,sz,buf,file=nil)
             file = @openfiles[path] unless file
-            file.sysseek(off)
+            file.sysseek(offset)
             file.syswrite(buf[0,sz])
         end
 
