@@ -220,44 +220,44 @@ describe FuseFS::MetaDir do
     
   end
   context "in a mounted FUSE filesystem" do
+
+    let(:mountpoint) { Pathname.new(Dir.mktmpdir(["rfusefs","metadir"])) }
+    let(:metadir) { FuseFS::MetaDir.new() }
+    let(:testdir) { mountpoint + "test" }
+    let(:testfile) { testdir + "hello.txt" }
+
 	before(:all) do
-		tmpdir = Pathname.new(Dir.tmpdir) + "rfusefs"
-		tmpdir.mkdir unless tmpdir.directory?
-		@mountpoint = tmpdir + "metadir_spec"
-        puts "#{@mountpoint}"
-		@mountpoint.mkdir unless @mountpoint.directory?
-		@metadir = FuseFS::MetaDir.new()
-        @metadir.mkdir("/test")
-        @metadir.write_to("/test/hello.txt","Hello World!\n")
-		FuseFS.mount(@metadir,@mountpoint)
-        @testdir = (@mountpoint + "test")
-        @testfile = (@testdir + "hello.txt")
+        metadir.mkdir("/test")
+        metadir.write_to("/test/hello.txt","Hello World!\n")
+		FuseFS.mount(metadir,mountpoint)
 		#Give FUSE some time to get started 
-		sleep(1)
+		sleep(0.5)
 	end
 	
 	after(:all) do
-		FuseFS.unmount(@mountpoint)
+		FuseFS.unmount(mountpoint)
+        sleep(0.5)
+        FileUtils.rm_r(mountpoint)
 	end
 	
     it "should list directory contents" do
-		@testdir.entries().should =~ pathnames(".","..","hello.txt")
+		testdir.entries().should =~ pathnames(".","..","hello.txt")
     end
 
     it "should read files" do
-        @testfile.file?.should be_true
-		@testfile.read().should == "Hello World!\n"
+        testfile.file?.should be_true
+		testfile.read().should == "Hello World!\n"
     end
 
     it "should create directories" do
-        newdir = @testdir + "newdir"
+        newdir = testdir + "newdir"
         newdir.mkdir()
         newdir.directory?.should be_true
-        @testdir.entries().should =~ pathnames(".","..","hello.txt","newdir")
+        testdir.entries().should =~ pathnames(".","..","hello.txt","newdir")
     end
 
     it "should create files" do
-        newfile = @testdir + "newfile"
+        newfile = testdir + "newfile"
         newfile.open("w") do |file|
             file << "A new file\n"
         end
@@ -265,14 +265,14 @@ describe FuseFS::MetaDir do
     end
 
     it "should move directories" do
-        fromdir = @testdir + "fromdir"
+        fromdir = testdir + "fromdir"
         fromdir.mkdir()
         subfile = fromdir + "afile"
         subfile.open("w") do |file|
            file << "testfile\n"
         end
 
-        movedir = (@mountpoint + "movedir")
+        movedir = (mountpoint + "movedir")
         movedir.directory?.should be_false
         fromdir.rename(movedir)
         movedir.directory?.should be_true
@@ -283,10 +283,10 @@ describe FuseFS::MetaDir do
     end
 
     it "should move files" do
-        movefile = (@mountpoint + "moved.txt")
+        movefile = (mountpoint + "moved.txt")
         movefile.file?.should be_false
-        @testfile.should be_true
-        @testfile.rename(movefile)
+        testfile.should be_true
+        testfile.rename(movefile)
         movefile.read.should == "Hello World!\n"
     end
 

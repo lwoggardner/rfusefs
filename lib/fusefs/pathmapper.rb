@@ -21,7 +21,8 @@ module FuseFS
                 "a"
             end
         end
-        attr_accessor :use_raw_file_access, :allow_write 
+        attr_accessor :use_raw_file_access, :allow_write
+
         #Creates a PathMapperFS
         #See #mapDirectory
         def PathMapperFS.create(dir,options={ },&block)
@@ -34,6 +35,7 @@ module FuseFS
 
         def initialize(options = { })
             @root = { }
+            @mapped_files = { }
             @use_raw_file_access = options[:use_raw_file_access]
             @allow_write = options[:allow_write]
         end
@@ -41,7 +43,7 @@ module FuseFS
         # Adds new_path to our list of mapped files
         #
         # Returns a hash entry which stores the real_path under the :pm_real_path key.
-        def map_file(real_path,new_path)
+        def map_file(real_path,new_path,options = {})
             #split path into components 
             components = new_path.to_s.scan(/[^\/]+/)
 
@@ -49,7 +51,9 @@ module FuseFS
             new_file = components.inject(@root) { |directory, file|
                 directory[file] ||= Hash.new()
             }
+            new_file.merge!(options)
             new_file[:pm_real_path] = real_path.to_s
+          
             return new_file
         end
         alias :mapFile :map_file
@@ -177,6 +181,16 @@ module FuseFS
             file.close if file
         end
 
+        # Deletes files and directories
+        #
+        # Yields each node in the filesystem, removing it if the block returns true
+        # If directories become empty as a result they are deleted
+        # @yieldparam [Hash] file node 
+        # @yieldreturn [true,false] should this node be deleted
+        def cleanup(&block)
+           recursive_cleanup(@root,&block) 
+        end
+
         private
         # returns a hash representing a given node, if we have a mapped entry for it, nil otherwise
         # this entry is a file if it has_key?(:pm_real_path), otherwise it is a directory.
@@ -188,6 +202,17 @@ module FuseFS
                 break unless dir[file]
                 dir[file]
             }
+        end
+        
+        def recursive_cleanup(dir_node,&block)
+            dir_node.delete_if do |path,child| 
+                if child.has_key?(:pm_real_path)
+                    yield child
+                else
+                    recursive_cleanup(child,&block)
+                    child.size == 0
+                end
+            end
         end
     end
 

@@ -396,6 +396,14 @@ module FuseFS
         #def statfs(path)   
         #end
 
+    def mounted()
+        @root.mounted()
+    end
+
+    def unmounted()
+        @root.unmounted()
+    end
+
     def self.context(ctx,&block)
         begin
             Thread.current[:fusefs_reader_uid] = ctx.uid

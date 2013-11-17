@@ -196,6 +196,14 @@ module FuseFS
         # @abstract FuseFS api
         def raw_close(path,raw=nil);end
 
+        # RFuseFS extension.
+        # Called when the filesystem is mounted
+        def mounted();end
+
+        # RFuseFS extension.
+        # Called when the filesystem is unmounted
+        def unmounted();end
+
     end
 
     DEFAULT_FS = FuseDir.new()

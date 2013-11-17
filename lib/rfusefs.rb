@@ -15,7 +15,7 @@ module FuseFS
     # @note RFuseFS extension
     # @return [void]
     def FuseFS.start(root,mountpoint,*opts)
-        print "Starting FuseFS #{root} at #{mountpoint} with #{opts}\n"
+        print "Starting FuseFS #{root} at #{mountpoint} with options #{opts}\n"
         Signal.trap("TERM") { FuseFS.exit() }
         Signal.trap("INT") { FuseFS.exit() }
         FuseFS.set_root(root)
@@ -89,7 +89,9 @@ module FuseFS
     #       you cannot access your filesystem using ruby File operations.
     # @note RFuseFS extension
     def FuseFS.run
+        @fs.mounted()
         @fuse.loop if @fuse.mounted? 
+        @fs.unmounted()
     end
 
     #  Exit the run loop and teardown FUSE   

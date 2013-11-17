@@ -189,7 +189,8 @@ module FuseFS
         end
 
         default_methods = FuseDir.public_instance_methods.select { |m| 
-            !self.public_method_defined?(m) && FuseDir.instance_method(m).owner == FuseDir
+            ![:mounted,:unmounted].include?(m) &&
+                !self.public_method_defined?(m) && FuseDir.instance_method(m).owner == FuseDir
         }
 
         default_methods.each do |m|

@@ -1,9 +1,12 @@
 #Pathmapper is hard to test because it is difficult to mock Dir/Pathname/File etc...
 require "spec_helper"
 require "fusefs/pathmapper"
+require 'tmpdir'
+require 'pathname'
 
 class PMFixture
     attr_reader :tmpdir
+
     def initialize()
         @tmpdir = Pathname.new(Dir.mktmpdir("rfusefs_pathmapper"))
         pathmap(@tmpdir + "hello.txt","/textfiles/hello")
@@ -27,15 +30,20 @@ class PMFixture
         return @mountpoint if @mountpoint
         @mountpoint = Pathname.new(Dir.mktmpdir("rfusefs_pathmapper_mnt"))
         FuseFS.mount(fs,@mountpoint)
-        sleep 1
+        sleep(0.5) 
         @mountpoint
     end
 
     def cleanup
-        FuseFS.unmount(@mountpoint) if @mountpoint
+        if @mountpoint
+            FuseFS.unmount(@mountpoint) 
+            sleep(0.5)
+            FileUtils.rmdir(@mountpoint)
+        end
         FileUtils.rm_r(@tmpdir)
     end
 end
+
 
 describe FuseFS::PathMapperFS do
     before(:each) do 

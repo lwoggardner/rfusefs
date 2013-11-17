@@ -41,7 +41,7 @@ describe FuseFS do
       @mock_fuse = FuseFS::FuseDir.new()
       @fuse = FuseFS::RFuseFS.new(@mock_fuse)
     end
-    
+
     describe :readdir do
       before(:each) do
         @mock_fuse.should_receive(:contents).with("/apath").and_return(["afile"])
