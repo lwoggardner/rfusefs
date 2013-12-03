@@ -197,6 +197,13 @@ module FuseFS
         def raw_close(path,raw=nil);end
 
         # RFuseFS extension.
+        # Extended attributes. These will be set/retrieved/removed directly
+        # @param [String] path
+        # @return [Hash] extended attributes for this path
+        # @abstract FuseFS api
+        def xattr(path); return {}; end
+
+        # RFuseFS extension.
         # Called when the filesystem is mounted
         def mounted();end
 

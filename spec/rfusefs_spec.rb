@@ -1,6 +1,7 @@
 require 'spec_helper'
 
 describe FuseFS do
+  
   TEST_FILE = "/aPath/aFile" 
   TEST_DIR = "/aPath"
   ROOT_PATH = "/"
@@ -390,7 +391,28 @@ describe FuseFS do
         end
 
     end
+    context "extended attributes" do
 
+        let(:xattr) { {} }
+        before(:each) { @mock_fuse.stub!(:xattr).with(TEST_FILE).and_return(xattr) }
+
+        it "should get, set and list attributes" do
+           xattr["user.one"] = "xattr one"
+           
+           @fuse.getxattr(nil,TEST_FILE,"user.one").should == "xattr one"
+           @fuse.setxattr(nil,TEST_FILE,"user.two","xattr two")
+           xattr["user.two"].should == "xattr two"
+           @fuse.listxattr(nil,TEST_FILE).should =~ [ "user.one", "user.two" ]
+           @fuse.removexattr(nil,TEST_FILE,"user.two")
+           xattr.keys.should =~ [ "user.one" ]
+        end
+
+        it "should raise ENODATA is no attribute is available" do
+            lambda{@fuse.getxattr(nil,TEST_FILE,"user.xxxx") }.should raise_error(Errno::ENODATA)
+        end
+
+
+    end
   end
   
   describe "a FuseFS filesystem with gid/uid specific behaviour" do

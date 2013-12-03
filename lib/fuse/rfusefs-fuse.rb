@@ -371,17 +371,27 @@ module FuseFS
         #def link(path,as)
         #end
 
-        # def setxattr(path,name,value,size,flags)
-        # end
+        def setxattr(ctx,path,name,value)
+            return wrap_context(ctx,__method__,path,name,value) if ctx
+            @root.xattr(path)[name]=value
+        end
 
-        # def getxattr(path,name,size)
-        # end
+        def getxattr(ctx,path,name)
+            return wrap_context(ctx,__method__,path,name) if ctx
+            result = @root.xattr(path)[name]
+            raise Errno::ENODATA.new("No attribute #{name}") unless result
+            result
+        end
 
-        # def listxattr(path,size)
-        # end
+        def listxattr(ctx,path)
+            return wrap_context(ctx,__method__,path) if ctx
+            @root.xattr(path).keys
+        end
 
-        # def removexattr(path,name)
-        # end
+        def removexattr(ctx,path,name)
+            return wrap_context(ctx,__method__,path,name) if ctx
+            @root.xattr(path).delete(name)
+        end
 
         #def opendir(path,ffi)
         #end
