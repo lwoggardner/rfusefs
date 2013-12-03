@@ -39,6 +39,7 @@ See samples under /samples and also the following starter classes
 * {FuseFS::MetaDir}
 * {FuseFS::DirLink}
 * {FuseFS::PathMapperFS}
+* {FuseFS::SqliteMapperFS}
 
 To use the filesystem open up your favourite file browser/terminal and
 explore the contents under <mountpoint>

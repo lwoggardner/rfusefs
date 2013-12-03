@@ -101,12 +101,14 @@ describe "SqliteMapper" do
 
             it "should add new files" do
                 fixture.pathmap("added.txt","/textfiles/added.txt")
+                fixture.db_force_write()
                 sleep(0.3)
                 fs.file?("/textfiles/added.txt").should be_true
             end
 
             it "should remove files and directories no longer mapped" do
                 fixture.unpathmap("/textfiles/hello")
+                fixture.db_force_write()
                 sleep(0.3)
                 fs.file?("/textfiles/hello").should be_false
                 fs.directory?("/textfiles").should be_false
