@@ -78,7 +78,7 @@ module FuseFS
                 options[:sqlite_scan_id] = @scan_id
                 map_file(new_path, real_path, options)
             end
-            cleanup() { |file_node| file_node[:sqlite_scan_id] != @scan_id }
+            cleanup() { |file_node| file_node.options[:sqlite_scan_id] != @scan_id }
         end
 
         private

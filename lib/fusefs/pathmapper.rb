@@ -4,8 +4,73 @@ module FuseFS
     # A FuseFS that maps files from their original location into a new path
     # eg tagged audio files can be mapped by title etc...
     #
-    # An in memory tree structure (Hash of Hashes) is used to maintain the tree structure. See {#node}
     class PathMapperFS < FuseDir
+
+        # Represents a mappted file or directory
+        class MNode
+            
+            # @return [Hash<String,MNode>] list of files in a directory, nil for file nodes
+            attr_reader :files
+
+            # @return [MNode] parent directory
+            attr_reader :parent
+
+            # @return [Hash] metadata for this node
+            attr_reader :options
+
+            # @return [String] path to backing file, or nil for directory nodes
+            attr_reader :real_path
+
+            # @!visibility private
+            def initialize(parent_dir)
+                @parent = parent_dir
+                @files = {}
+                @options = {}
+            end
+
+            # @!visibility private
+            def init_file(real_path,options)
+                @options = options
+                @real_path = real_path
+                @files = nil
+            end
+
+            # @return [Boolean] true if node represents a file, otherwise false
+            def file?
+                real_path && true
+            end
+
+            # @return [Boolean] true if node represents a directory, otherwise false
+            def directory?
+                files && true
+            end
+
+            # @return [Boolean] true if node is the root directory
+            def root?
+                @parent.nil?
+            end
+
+            # Compatibility and convenience method
+            # @param [:pm_real_path,String,Symbol] key 
+            # @return [String] {#real_path} if key == :pm_real_path 
+            # @return [MNode] the node representing the file named key
+            # @return [Object] shortcut for {#options}[key] 
+            def[](key)
+                case key
+                when :pm_real_path
+                    real_path
+                when String
+                    files[key]
+                else
+                    options[key]
+                end
+            end
+
+            # Convenience method to set metadata into {#options}
+            def[]=(key,value)
+                options[key]=value
+            end
+        end
 
         # Convert FuseFS raw_mode strings to IO open mode strings
         def self.open_mode(raw_mode)
@@ -53,7 +118,7 @@ module FuseFS
         # @option options [Boolean] :use_raw_file_access
         # @option options [Boolean] :allow_write
         def initialize(options = { })
-            @root = { }
+            @root = MNode.new(nil)
             @use_raw_file_access = options[:use_raw_file_access]
             @allow_write = options[:allow_write]
         end
@@ -77,51 +142,43 @@ module FuseFS
         #
         # @param [String] real_path pointing at the real file location
         # @param [String] new_path the mapped path
-        # @param [Hash<Symbol,Object>] options other data for this path
-        # @return [Hash]
+        # @param [Hash<Symbol,Object>] options metadata for this path
+        # @option options [Hash<String,String>] :xattr hash to be used as extended attributes
+        # @return [MNode]
         #    a node representing the mapped path. See {#node}
         def map_file(real_path,new_path,options = {})
             #split path into components 
             components = new_path.to_s.scan(/[^\/]+/)
 
             #create a hash of hashes to represent our directory structure
-            new_file = components.inject(@root) { |directory, file|
-                directory[file] ||= Hash.new().merge!(:pm_parent => directory)
+            new_file = components.inject(@root) { |parent_dir, file|
+                parent_dir.files[file] ||= MNode.new(parent_dir)
             }
-            new_file.merge!(options)
-            new_file[:pm_real_path] = real_path.to_s
+            new_file.init_file(real_path,options)
           
             return new_file
         end
         alias :mapFile :map_file
         
-        # Retrieve node for a mapped path
+        # Retrieve in memory node for a mapped path
         #
         # @param [String] path
-        #
-        # @return [Hash] represents the in memory node at path
-        #    * :pm_real_path indicates a file node and references the backing file
-        #    * :pm_parent references the parent directory node (nil if root)
-        #    * Symbol keys represent arbitrary metadata for a node
-        #    * :xattr if set with a [Hash] value represents extended attributes to be returned by the
-        #      filesystem
-        #    * String keys represent the mapped filenames within a directory
-        #
+        # @return [MNode] in memory node at path
         # @return nil if path does not exist in the filesystem
         def node(path)
             path_components = scan_path(path)
 
             #not actually injecting anything here, we're just following the hash of hashes...
             path_components.inject(@root) { |dir,file|
-                break unless dir[file]
-                dir[file]
+                break unless dir.files[file]
+                dir.files[file]
             }
         end
 
         # Takes a mapped file name and returns the original real_path
         def unmap(path)
-            possible_file = node(path)
-            return possible_file ? possible_file[:pm_real_path] : nil
+            node = node(path)
+            (node && node.file?) ? node.real_path : nil
         end
         
         # Deletes files and directories.
@@ -140,12 +197,12 @@ module FuseFS
         # @!visibility private
         def directory?(path)
             possible_dir = node(path)
-            possible_dir && !possible_dir[:pm_real_path]
+            possible_dir && possible_dir.directory?
         end
 
         # @!visibility private
         def contents(path)
-            node(path).keys.select {|d| String === d}
+            node(path).files.keys
         end
 
         # @!visibility private
@@ -193,7 +250,7 @@ module FuseFS
 
         # @!visibility private
         def xattr(path)
-            result = node(path)[:xattr] || {}
+            result = node(path).options[:xattr] || {}
         end
 
         # @!visibility private
@@ -251,14 +308,12 @@ module FuseFS
         private
         
         def recursive_cleanup(dir_node,&block)
-            dir_node.delete_if do |path,child| 
-                # ignore symbols... that represent directory level information
-                next false unless String === path
-                if child.has_key?(:pm_real_path)
+            dir_node.files.delete_if do |path,child| 
+                if child.file?
                     yield child
                 else
                     recursive_cleanup(child,&block) 
-                    !child.any? { |p,v| String === p }
+                    child.files.size == 0
                 end
             end
         end
