@@ -44,7 +44,7 @@ module FuseFS
     #       fs = MyFS.new(options)
     #   end
     #
-    def FuseFS.main(argv=ARGV,options=[],option_usage="",device=nil,exec=$0)
+    def FuseFS.main(argv=ARGV,options=[],option_usage="",device=nil,exec=File.basename($0))
         options = RFuse.parse_options(argv,*options)
 
         if options[:mountpoint]
