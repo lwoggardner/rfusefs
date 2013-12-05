@@ -8,6 +8,59 @@ require 'rfusefs/version'
 module FuseFS
     @mounts = { }
 
+    # Convenience method to launch a FuseFS filesystem with nice error messages
+    #
+    # @param [Array<String>] argv command line arguments
+    # @param [Array<Symbol>] options list of additional options
+    # @param [String] option_usage describing additional option usage
+    # @param [String] device a description of the device field
+    # @param [String] exec the executable file
+    #
+    # @yieldparam [Hash<Symbol,String>] options
+    #   options parsed from ARGV including...
+    #     * :device - the optional mount device
+    #     * :mountpoint - required mountpoint
+    #     * :help - true if -h was supplied
+    #
+    # @yieldreturn [FuseDir] an RFuseFS filesystem
+    #
+    # @example
+    #   MY_OPTIONS = [ :myfs ]
+    #   OPTION_USAGE = "  -o myfs=VAL how to use the myfs option"
+    #
+    #   # Normally from the command line...
+    #   ARGV = [ "some/device", "/mnt/point", "-h", "-o", "debug,myfs=aValue" ]
+    #
+    #   FuseFS.main(ARGV, MY_OPTIONS, OPTION_USAGE, "/path/to/somedevice", $0) do |options|
+    #
+    #       # options ==
+    #          { :device => "some/device",
+    #            :mountpoint => "/mnt/point",
+    #            :help => true,
+    #            :debug => true,
+    #            :myfs => "aValue"
+    #          }
+    #
+    #       fs = MyFS.new(options)
+    #   end
+    #
+    def FuseFS.main(argv=ARGV,options=[],option_usage="",device=nil,exec=$0)
+        options = RFuse.parse_options(argv,*options)
+
+        if options[:mountpoint]
+            fs = yield options
+
+            puts RFuse.usage(device,exec) if options[:help] || !fs
+            puts "Options:\n"  if options[:help]
+
+            FuseFS.start(fs,*argv) if fs || options[:help] 
+
+            puts option_usage if options[:help]
+        else
+            puts "rfusefs: failed, no mountpoint provided",RFuse.usage(device,exec)
+        end
+    end
+
     # Start the FuseFS root at mountpoint with opts. 
     # @param [Object] root see {set_root}
     # @param mountpoint [String] {mount_under}
@@ -15,7 +68,6 @@ module FuseFS
     # @note RFuseFS extension
     # @return [void]
     def FuseFS.start(root,mountpoint,*opts)
-        print "Starting FuseFS #{root} at #{mountpoint} with options #{opts}\n"
         Signal.trap("TERM") { FuseFS.exit() }
         Signal.trap("INT") { FuseFS.exit() }
         FuseFS.set_root(root)

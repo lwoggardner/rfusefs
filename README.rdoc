@@ -16,22 +16,7 @@ RFuseFS is api compatible with FuseFS (0.7.0)
 FuseFS provides a layer of abstraction to a programmer who wants to create a
 virtual filesystem via FUSE.
 
-FuseFS programs consist of two parts:
-
-1. FuseFS, which is defined in 'rfusefs.rb'
-2. An object that defines a virtual directory by subclassing {FuseFS::FuseDir}
-
-To write a FuseFS program, you must:
-
-* Define and create a Directory object that responds to the methods required
-  by FuseFS for its desired use.
-
-* Call
-       
-       FuseFS.start <virtualdir> <mountpoint> [mount_options]
-
-  where <virtualdir> with an object defining your virtual directory.
-  and <mountpoint> is a real directory on your filesystem
+First define a virtual directory by subclassing {FuseFS::FuseDir}
 
 See samples under /samples and also the following starter classes
 
@@ -41,12 +26,17 @@ See samples under /samples and also the following starter classes
 * {FuseFS::PathMapperFS}
 * {FuseFS::SqliteMapperFS}
 
-To use the filesystem open up your favourite file browser/terminal and
+Then start your filesystem with
+
+* {FuseFS.start}
+* {FuseFS.main}
+
+Finally to use the filesystem open up your favourite file browser/terminal and
 explore the contents under <mountpoint>
 
 Happy Filesystem Hacking!
 
-=== the hello world filesystem in 17 LOC
+=== the hello world filesystem in 16 LOC
 
   require 'rfusefs'
 
@@ -65,10 +55,8 @@ Happy Filesystem Hacking!
     end
   end
 
-  hellodir = HelloDir.new
-
   # Usage: #{$0} mountpoint [mount_options]
-  FuseFS.start(hellodir,*ARGV)
+  FuseFS.main() { |options| HelloDir.new }
 
 == REQUIREMENTS:
 
