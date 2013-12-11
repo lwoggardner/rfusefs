@@ -410,8 +410,6 @@ describe FuseFS do
         it "should raise ENODATA is no attribute is available" do
             lambda{@fuse.getxattr(nil,TEST_FILE,"user.xxxx") }.should raise_error(Errno::ENODATA)
         end
-
-
     end
   end
   

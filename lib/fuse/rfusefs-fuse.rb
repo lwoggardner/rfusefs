@@ -380,7 +380,7 @@ module FuseFS
             return wrap_context(ctx,__method__,path,name) if ctx
             result = @root.xattr(path)[name]
             raise Errno::ENODATA.new("No attribute #{name}") unless result
-            result
+            result.to_s
         end
 
         def listxattr(ctx,path)

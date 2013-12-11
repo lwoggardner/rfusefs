@@ -30,9 +30,15 @@ module FuseFS
 
             # @!visibility private
             def init_file(real_path,options)
-                @options = options
+                @options.merge!(options)
                 @real_path = real_path
                 @files = nil
+                self
+            end
+
+            def init_dir(options)
+                @options.merge!(options)
+                self
             end
 
             # @return [Boolean] true if node represents a file, otherwise false
@@ -147,19 +153,10 @@ module FuseFS
         # @return [MNode]
         #    a node representing the mapped path. See {#node}
         def map_file(real_path,new_path,options = {})
-            #split path into components 
-            components = new_path.to_s.scan(/[^\/]+/)
-
-            #create a hash of hashes to represent our directory structure
-            new_file = components.inject(@root) { |parent_dir, file|
-                parent_dir.files[file] ||= MNode.new(parent_dir)
-            }
-            new_file.init_file(real_path,options)
-          
-            return new_file
+            make_node(new_path).init_file(real_path,options)
         end
         alias :mapFile :map_file
-        
+
         # Retrieve in memory node for a mapped path
         #
         # @param [String] path
@@ -222,6 +219,13 @@ module FuseFS
         # because otherwise we don't have anything to back it
         def can_write?(path)
             @allow_write && file?(path)
+        end
+
+        # Note we don't impleemnt can_mkdir? so this can
+        # only be called by code. Really only useful to
+        # create empty directories
+        def mkdir(path,options = {})
+            make_node(path).init_dir(options)
         end
 
         # @!visibility private
@@ -306,6 +310,14 @@ module FuseFS
         end
 
         private
+       
+        def make_node(path)
+            #split path into components 
+            components = path.to_s.scan(/[^\/]+/)
+            components.inject(@root) { |parent_dir, file|
+                parent_dir.files[file] ||= MNode.new(parent_dir)
+            }
+        end
         
         def recursive_cleanup(dir_node,&block)
             dir_node.files.delete_if do |path,child| 
