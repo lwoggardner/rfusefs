@@ -123,6 +123,7 @@ module FuseFS
 
         # Write the contents of str to file at path
         # @abstract FuseFS api
+        # @return [void]
         def write_to(path,str);end
 
         # @abstract FuseFS api
@@ -131,6 +132,7 @@ module FuseFS
 
         # Delete the file at path
         # @abstract FuseFS api
+        # @return [void]
         def delete(path);end
 
         # @abstract FuseFS api
@@ -139,6 +141,7 @@ module FuseFS
 
         # Make a directory at path
         # @abstract FuseFS api
+        # @return [void]
         def mkdir(path);end
 
         # @abstract FuseFS api
@@ -147,15 +150,17 @@ module FuseFS
 
         # Remove the directory at path
         # @abstract FuseFS api
+        # @return [void]
         def rmdir(path);end
 
         # Neat toy. Called when a file is touched or has its timestamp explicitly modified
         # @abstract FuseFS api
+        # @return [void]
         def touch(path,modtime);end
 
         # Move a file or directory.
         # @abstract FuseFS api
-        # @return [Object] non nil/false to indicate the rename has been handled,
+        # @return [Boolean] true to indicate the rename has been handled,
         #                  otherwise will fallback to copy/delete
         def rename(from_path,to_path);end
 
@@ -163,7 +168,8 @@ module FuseFS
         # @abstract FuseFS api
         # @param mode [String] "r","w" or "rw", with "a" if file is opened for append
         # @param rfusefs [Boolean] will be "true" if RFuseFS extensions are available
-        # @return [Object] a non nil object if you want lower level control of file operations
+        # @return [nil] to indicate raw operations are not implemented
+        # @return [Object] a filehandle
         #                  Under RFuseFS this object will be passed back in to the other raw
         #                  methods as the optional parameter _raw_
         #
@@ -177,6 +183,7 @@ module FuseFS
         # This method can also be invoked (without raw) outside of an open file context. See
         # FUSE documentation on truncate() vs ftruncate()
         # @abstract FuseFS api
+        # @return [void]
         def raw_truncate(path,off,raw=nil);end
 
         # Read _sz_ bytes from file at path (or filehandle raw) starting at offset off
@@ -186,14 +193,17 @@ module FuseFS
         # @param [Fixnum] size
         # @param [Object] raw the filehandle returned by {#raw_open}
         # @abstract FuseFS api
+        # @return [void]
         def raw_read(path,offset,size,raw=nil);end
 
         # Write _sz_ bytes from file at path (or filehandle raw) starting at offset off
         # @abstract FuseFS api
+        # @return [void]
         def raw_write(path,off,sz,buf,raw=nil);end
 
         # Close the file previously opened at path (or filehandle raw)
         # @abstract FuseFS api
+        # @return [void]
         def raw_close(path,raw=nil);end
 
         # RFuseFS extension.
@@ -205,10 +215,12 @@ module FuseFS
 
         # RFuseFS extension.
         # Called when the filesystem is mounted
+        # @return [void]
         def mounted();end
 
         # RFuseFS extension.
         # Called when the filesystem is unmounted
+        # @return [void]
         def unmounted();end
 
     end
