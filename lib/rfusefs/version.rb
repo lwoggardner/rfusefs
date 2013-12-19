@@ -1,3 +1,3 @@
 module RFuseFS
-    VERSION="1.0.1.RC3"
+    VERSION="1.0.1"
 end
