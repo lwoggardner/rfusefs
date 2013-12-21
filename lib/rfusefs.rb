@@ -143,6 +143,7 @@ module FuseFS
     def FuseFS.run
         @fs.mounted()
         @fuse.loop if @fuse.mounted? 
+    ensure
         @fs.unmounted()
     end
 

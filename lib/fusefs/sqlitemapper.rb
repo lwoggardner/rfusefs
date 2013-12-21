@@ -1,11 +1,13 @@
 require 'fusefs/pathmapper'
 require 'sqlite3'
-require 'rb-inotify'
 require 'thread'
 
 module FuseFS
 
     class SqliteMapperFS < PathMapperFS
+
+        # The database file
+        attr_reader :db_path
 
         # The database connection
         attr_reader :db
@@ -46,16 +48,10 @@ module FuseFS
         # performs the initial scan and starts watching the database for changes
         # @api FuseFS
         def mounted()
+            @mounted = true
             @mutex = Mutex.new
             @cv = ConditionVariable.new
-            @mounted = true
-
-            notifier = start_notifier
-
-
-            @scan_thread = Thread.new() do
-                scan_loop(notifier)
-            end
+            @scan_thread = Thread.new() { scan_loop() }
         end
 
         # FuseFS callback when filesystem is unmounted
@@ -64,8 +60,12 @@ module FuseFS
         # @api FuseFS
         def unmounted()
             @mounted = false
-            @mutex.synchronize { @cv.signal }
+            @mutex.synchronize { @cv.signal() }
             @scan_thread.join
+        end
+
+        def rescan()
+            @mutex.synchronize { @cv.signal() }
         end
 
         # Executes the sql query and passes each row to map_row (or the block passed in {#initialize})
@@ -76,30 +76,19 @@ module FuseFS
                 new_path, real_path, options =  map_row(row)
                 options ||= {}
                 options[:sqlite_scan_id] = @scan_id
-                map_file(new_path, real_path, options)
+                begin
+                    map_file(new_path, real_path, options)
+                rescue StandardError => e
+                    puts e
+                    puts e.backtrace.join("\n")
+                end
             end
             cleanup() { |file_node| file_node.options[:sqlite_scan_id] != @scan_id }
         end
 
         private
 
-        def start_notifier
-            notifier = INotify::Notifier.new()
-            modified = false
-            notifier.watch(@db_path,:modify, :close_write) do |event|
-                modified = true if event.flags.include?(:modify)
-                if event.flags.include?(:close_write) && modified
-                    @mutex.synchronize {@cv.signal}
-                    modified = false
-                end
-            end
-
-            Thread.new { notifier.run }
-
-            notifier
-        end
-
-        def scan_loop(notifier)
+        def scan_loop()
             @mutex.synchronize() do
                 @scan_id = 0
                 while @mounted
@@ -118,7 +107,6 @@ module FuseFS
                     end
                     @cv.wait(@mutex) 
                 end
-                notifier.stop   
             end
         end
     end
