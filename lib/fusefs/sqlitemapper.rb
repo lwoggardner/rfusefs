@@ -45,7 +45,7 @@ module FuseFS
         end
 
         # FuseFS callback when the filesystem is mounted
-        # performs the initial scan and starts watching the database for changes
+        # Starts the scanning loop and performs the initial scan
         # @api FuseFS
         def mounted()
             @mounted = true
@@ -64,6 +64,8 @@ module FuseFS
             @scan_thread.join
         end
 
+
+        # Trigger a rescan of the database
         def rescan()
             @mutex.synchronize { @cv.signal() }
         end

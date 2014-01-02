@@ -48,7 +48,12 @@ module FuseFS
         options = RFuse.parse_options(argv,*options)
 
         if options[:mountpoint]
-            fs = yield options
+            begin
+                fs = yield options
+            rescue StandardError => ex
+                puts ex.message
+                puts ex.backtrace.join("\n")
+            end
 
             puts RFuse.usage(device,exec) if options[:help] || !fs
             puts "Options:\n"  if options[:help]
@@ -62,18 +67,24 @@ module FuseFS
     end
 
     # Start the FuseFS root at mountpoint with opts. 
+    #
+    # If not previously set, Signal traps for "TERM" and "INT" are added
+    # to exit the filesystem
+    #
     # @param [Object] root see {set_root}
     # @param mountpoint [String] {mount_under}
     # @param [String...] opts FUSE mount options see {mount_under}
     # @note RFuseFS extension
     # @return [void]
     def FuseFS.start(root,mountpoint,*opts)
-        Signal.trap("TERM") { FuseFS.exit() }
-        Signal.trap("INT") { FuseFS.exit() }
+        set_default_traps("TERM","INT") { FuseFS.exit }
         FuseFS.set_root(root)
-        FuseFS.mount_under(mountpoint,*opts)
-        FuseFS.run
-        FuseFS.unmount()
+        begin
+            FuseFS.mount_under(mountpoint,*opts)
+            FuseFS.run
+        ensure
+            FuseFS.unmount()
+        end
     end
 
     # Forks {FuseFS.start} so you can access your filesystem with ruby File
@@ -100,7 +111,6 @@ module FuseFS
         if (mountpoint)
             if @mounts.has_key?(mountpoint)
                 pid = @mounts[mountpoint]
-                print "Sending TERM to forked FuseFS (#{pid})\n"
                 Process.kill("TERM",pid)
                 Process.waitpid(pid)
             else
@@ -150,10 +160,7 @@ module FuseFS
     #  Exit the run loop and teardown FUSE   
     #  Most useful from Signal.trap() or Kernel.at_exit()  
     def FuseFS.exit
-        @running = false
-
         if @fuse
-            print "Exitting FUSE #{@fuse.mountname}\n"
             @fuse.exit
         end
     end
@@ -176,6 +183,17 @@ module FuseFS
     # @deprecated
     def self.handle_editor(bool)
         #do nothing
+    end
+
+    private
+    
+    def self.set_default_traps(*signals,&block)
+        signals.each do |sig|
+            old_proc = Signal.trap(sig,block)
+            unless "DEFAULT".eql?(old_proc)
+                Signal.trap(sig,old_proc)
+            end
+        end
     end
 end
 
