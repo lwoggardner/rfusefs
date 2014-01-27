@@ -197,10 +197,23 @@ describe FuseFS do
     		filetype(stat.mode).should == RFuse::Stat::S_IFREG
     		stat.size.should == 0
     	end
-    	
+        
+        it "should create zero length files" do
+     		ffi = Struct::FuseFileInfo.new()
+    		ffi.flags = Fcntl::O_WRONLY
+    		@mock_fuse.stub!(:file?).with(TEST_FILE).and_return(false)
+    		@mock_fuse.stub!(:directory?).with(TEST_FILE).and_return(false)
+    		@mock_fuse.stub!(:can_write?).with(TEST_FILE).and_return(true)
+            @mock_fuse.should_receive(:write_to).once.with(TEST_FILE,"")
+    		@fuse.mknod(nil,TEST_FILE,RFuse::Stat::S_IFREG | 0644,0,0)
+    		@fuse.open(nil,TEST_FILE,ffi)
+    		@fuse.flush(nil,TEST_FILE,ffi)
+    		@fuse.release(nil,TEST_FILE,ffi)
+        end
+
     	it ":mkdir should not raise error if can_mkdir?" do
     		@mock_fuse.should_receive(:can_mkdir?).with(TEST_FILE).and_return(true)
-    		@fuse.mkdir(nil,TEST_FILE,004555)	
+    		@fuse.mkdir(nil,TEST_FILE,004555)
     	end
       
     end
@@ -254,9 +267,11 @@ describe FuseFS do
     		@fuse.release(nil,TEST_FILE,ffi)
    		
     	end
-        
+
     	it "should do sensible things for files opened RDWR"
-    	
+    
+        it "should pass on buffered data when requested (fsync)"
+
     end
     
     context "raw reading" do
@@ -278,19 +293,21 @@ describe FuseFS do
     end
     
     context "raw writing" do
-		it "should call raw_truncate,raw_write,raw_close if raw_open returns true" do
+		it "should call other raw_* methods if raw_open returns true" do
 			ffi = Struct::FuseFileInfo.new()
-			ffi.flags = Fcntl::O_WRONLY 
+			ffi.flags = Fcntl::O_WRONLY
 			raw = Object.new()
 			@mock_fuse.stub!(:can_write?).with(TEST_FILE).and_return(true)
 			@mock_fuse.should_receive(:raw_open).with(TEST_FILE,"w",true).and_return(raw)
 			@mock_fuse.should_receive(:raw_truncate).with(TEST_FILE,0,raw)
 			@mock_fuse.should_receive(:raw_write).with(TEST_FILE,0,5,"12345",raw).once().and_return(5)
 			@mock_fuse.should_receive(:raw_write).with(TEST_FILE,5,5,"67890",raw).once().and_return(5)
+            @mock_fuse.should_receive(:raw_sync).with(TEST_FILE, false, raw)
 			@mock_fuse.should_receive(:raw_close).with(TEST_FILE,raw)
 			@fuse.open(nil,TEST_FILE,ffi)
 			@fuse.ftruncate(nil,TEST_FILE,0,ffi)
     		@fuse.write(nil,TEST_FILE,"12345",0,ffi).should == 5
+            @fuse.fsync(nil,TEST_FILE,0,ffi)
 			@fuse.write(nil,TEST_FILE,"67890",5,ffi).should == 5
 			@fuse.flush(nil,TEST_FILE,ffi)
 			@fuse.release(nil,TEST_FILE,ffi)

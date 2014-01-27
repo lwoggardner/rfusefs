@@ -21,9 +21,14 @@ module FuseFS
 
         DEFAULT_FS = FuseDir.new()
 
-        def initialize()
+        # @return [StatsHelper] helper for filesystem accounting (df etc)
+        attr_reader :stats
+
+        def initialize(stats = nil)
             @subdirs  = Hash.new(nil)
             @files    = Hash.new(nil)
+            @stats = stats || StatsHelper.new()
+            @stats.adjust(0,1)
         end
 
         def split_path(path)
@@ -78,6 +83,14 @@ module FuseFS
 
         def write_to(path,contents)
             pathmethod(:write_to,path,contents) do |filename, filecontents |
+                adj_size = filecontents.to_s.length
+                adj_nodes = 1
+                if @files.has_key?(filename)
+                    adj_size = adj_size - @files[filename].to_s.length
+                    adj_nodes = 0
+                end
+                @stats.adjust(adj_size,adj_nodes)
+
                 @files[filename] = filecontents
             end
         end
@@ -91,7 +104,8 @@ module FuseFS
 
         def delete(path)
             pathmethod(:delete,path) do |filename|
-                @files.delete(filename)
+                contents = @files.delete(filename)
+                @stats.adjust(-contents.to_s.length,-1)
             end
         end
 
@@ -104,7 +118,7 @@ module FuseFS
 
         def mkdir(path,dir=nil)
             pathmethod(:mkdir,path,dir) do | dirname,dirobj |
-                dirobj ||= MetaDir.new
+                dirobj ||= MetaDir.new(@stats)
                 @subdirs[dirname] = dirobj
             end
         end
@@ -119,6 +133,7 @@ module FuseFS
         def rmdir(path)
             pathmethod(:rmdir,path) do |dirname|
                 @subdirs.delete(dirname)
+                @status.adjust(0,-1)
             end
         end
 
@@ -143,6 +158,8 @@ module FuseFS
                     begin
                         to_fusefs.mkdir(to_path,@subdirs[from_base])
                         @subdirs.delete(from_base)
+                        @stats.adjust(0,-1)
+                        return true
                     rescue ArgumentError
                         # to_rest does not support mkdir with an arbitrary object
                         return false
@@ -188,7 +205,20 @@ module FuseFS
             end
         end
 
-        default_methods = FuseDir.public_instance_methods.select { |m| 
+        # path is ignored? - recursively calculate for all subdirs - but cache and then rely on fuse to keep count
+        def statistics(path)
+            pathmethod(:statistics,path) do |stats_path|
+                if @subdirs.has_key?(stats_path)
+                    #unlike all the other functions where this metadir applies
+                    #the function to @subdirs - we need to pass it on
+                    @subdirs[stats_path].statistics("/")
+                else
+                    @stats.to_statistics
+                end
+            end
+        end
+
+        default_methods = FuseDir.public_instance_methods.select { |m|
             ![:mounted,:unmounted].include?(m) &&
                 !self.public_method_defined?(m) && FuseDir.instance_method(m).owner == FuseDir
         }

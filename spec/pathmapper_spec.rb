@@ -9,6 +9,7 @@ class PMFixture
 
     def initialize()
         @tmpdir = Pathname.new(Dir.mktmpdir("rfusefs_pathmapper"))
+        #Note - these names define the filesystem stats so if you change them those tests will break
         pathmap(@tmpdir + "hello.txt","/textfiles/hello")
         pathmap(@tmpdir + "mysong.mp3","/artist/album/mysong.mp3")
         pathmap(@tmpdir + "apicture.jpeg","/pictures/201103/apicture.jpg")
@@ -96,7 +97,16 @@ describe FuseFS::PathMapperFS do
             ctime.should == picture.ctime()
         end
 
-        it "reports filesystem statistics"
+        context "filesystem statistics" do
+
+            it "reports accumulated stats about mapped files" do
+                used_space, used_nodes, max_space, max_nodes = @pathmapFS.statistics("/pictures/201103/apicture.jpg")
+                used_space.should == 69
+                used_nodes.should == 9
+                max_space.should be_nil
+                max_nodes.should be_nil
+            end
+        end
 
         context "writing to a pathmapped FS" do
             before(:each) do
@@ -162,6 +172,8 @@ describe FuseFS::PathMapperFS do
             hellopath.read.should == "updated content"
             real_path.read.should == "updated content"
         end
+
+        it "reports filesystem statistics"
     end
 
     context "a real Fuse mount with raw file access" do
@@ -193,10 +205,11 @@ describe FuseFS::PathMapperFS do
                 f.syswrite("zzz")
                 f.sysseek(0)
                 f.sysread(6).should == "/tzzzf"
-            end 
+            end
 
-            real_path.read.should == "/tzzzfiles/hello"   
+            real_path.read.should == "/tzzzfiles/hello"
         end
 
+        it "reports filesystem statistics"
     end
 end

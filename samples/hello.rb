@@ -11,12 +11,9 @@ class HelloDir
     "Hello, World!\n"
   end
 
-  def size(path)
-    read_file(path).size
-  end
 end
 
-if __FILE__ == $0	
+if __FILE__ == $0
 	require 'rfusefs'
 	hellodir = HelloDir.new
     FuseFS.start(hellodir,*ARGV)

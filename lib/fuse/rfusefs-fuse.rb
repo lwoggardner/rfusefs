@@ -16,15 +16,23 @@ module FuseFS
             @path = path
             @modified = false
             @contents = ""
+            @size = 0
         end
 
         def read(offset,size)
             contents[offset,size]
         end
 
+        def create
+            @contents = ""
+            @modified = true
+        end
+
         def write(offset,data)
+            # TODO: why append?
             if append? || offset >= contents.length
                 #ignore offset
+                #TODO: should this zero fill?
                 contents << data
             else
                 contents[offset,data.length]=data
@@ -92,6 +100,10 @@ module FuseFS
         def initialize(root)
             @root = root
             @created_files = { }
+            
+            # Keep track of changes to file counts and sizes made via Fuse - for #statfs
+            @adj_nodes = 0
+            @adj_size = 0
 
             #Define method missing for our filesystem
             #so we can just call all the API methods as required.
@@ -123,8 +135,8 @@ module FuseFS
 
             return wrap_context(ctx,__method__,path) if ctx
 
-            uid = Process.gid
-            gid = Process.uid
+            uid = Process.uid
+            gid = Process.gid
 
             if  path == "/" || @root.directory?(path)
                 #set "w" flag based on can_mkdir? || can_write? to path + "/._rfuse_check"
@@ -135,14 +147,13 @@ module FuseFS
                 #nlink is set to 1 because apparently this makes find work.
                 return RFuse::Stat.directory(mode,{ :uid => uid, :gid => gid, :nlink => 1, :atime => atime, :mtime => mtime, :ctime => ctime })
             elsif @created_files.has_key?(path)
-                now = Time.now.to_i
-                return RFuse::Stat.file(@created_files[path],{ :uid => uid, :gid => gid, :atime => now, :mtime => now, :ctime => now })
+                return @created_files[path]
             elsif @root.file?(path)
                 #Set mode from can_write and executable
                 mode = 0444
                 mode |= 0222 if @root.can_write?(path)
                 mode |= 0111 if @root.executable?(path)
-                size = @root.size(path)
+                size = size(path)
                 atime,mtime,ctime = @root.times(path)
                 return RFuse::Stat.file(mode,{ :uid => uid, :gid => gid, :size => size, :atime => atime, :mtime => mtime, :ctime => ctime })
             else
@@ -160,6 +171,7 @@ module FuseFS
             end
 
             @root.mkdir(path)
+            @adj_nodes += 1
         end #mkdir
 
         def mknod(ctx,path,mode,major,minor)
@@ -170,10 +182,15 @@ module FuseFS
                 raise Errno::EACCES.new(path)
             end
 
-            @created_files[path] = mode
+            now = Time.now
+            stat = RFuse::Stat.file(mode,{ :uid => Process.uid, :gid => Process.gid, :atime => now, :mtime => now, :ctime => now })
+
+            @created_files[path] = stat
+            @adj_nodes += 1
         end #mknod
 
         #ftruncate - eg called after opening a file for write without append
+        #sizes are adjusted at file close
         def ftruncate(ctx,path,offset,ffi)
 
             return wrap_context(ctx,__method__,path,offset,ffi) if ctx
@@ -182,10 +199,11 @@ module FuseFS
 
             if fh.raw
                 @root.raw_truncate(path,offset,fh.raw)
-            elsif (offset <= 0)
-                fh.contents = ""
-            else
-                fh.contents = fh.contents[0..offset]
+                if (offset <= 0)
+                    fh.contents = ""
+                else
+                    fh.contents = fh.contents[0..offset]
+                end
             end
         end
 
@@ -197,14 +215,16 @@ module FuseFS
                 raise Errno::EACESS.new(path)
             end
 
+            current_size = size(path)
             unless @root.raw_truncate(path,offset)
                 contents = @root.read_file(path)
                 if (offset <= 0)
-                    @root.write_to(path,"")
+                   @root.write_to(path,"")
                 elsif offset < contents.length
                     @root.write_to(path,contents[0..offset] )
                 end
             end
+            @adj_size = @adj_size - current_size + (offset <= 0 ? 0 : offset)
         end #truncate
 
         # Open. Create a FileHandler and store in fuse file info
@@ -222,17 +242,15 @@ module FuseFS
             end
 
             unless fh.raw
-
                 if fh.rdonly?
                     fh.contents = @root.read_file(path)
-                elsif fh.rdwr? || fh.wronly?
+                elsif fh.writing?
                     unless @root.can_write?(path)
                         raise Errno::EACCES.new(path)
                     end
 
                     if @created_files.has_key?(path)
-                        #we have an empty file
-                        fh.contents = "";
+                        fh.create
                     else
                         if fh.rdwr? || fh.append?
                             fh.contents = @root.read_file(path)
@@ -245,9 +263,9 @@ module FuseFS
                     raise Errno::ENOPERM.new(path)
                 end
             end
+            
             #If we get this far, save our filehandle in the FUSE structure
             ffi.fh=fh
-
         end
 
         def read(ctx,path,size,offset,ffi)
@@ -285,7 +303,21 @@ module FuseFS
             else
                 return fh.write(offset,buf)
             end
+        end
+        
+        def fsync(ctx,path,datasync,ffi)
+            return wrap_context(ctx,__method__,path,datasync,ffi) if ctx
+            fh = ffi.fh
 
+            if fh && fh.raw
+                if FuseFS::RFUSEFS_COMPATIBILITY
+                    @root.raw_sync(path,datasync != 0,fh.raw)
+                else
+                    @root.raw_sync(path,datasync != 0)
+                end
+            else
+                flush(nil,path,ffi)
+            end
         end
 
         def flush(ctx,path,ffi)
@@ -298,13 +330,11 @@ module FuseFS
                 #if it was created with mknod it now exists in the filesystem...
                 @created_files.delete(path)
             end
-
         end
 
         def release(ctx,path,ffi)
             return wrap_context(ctx,__method__,path,ffi) if ctx
 
-            flush(nil,path,ffi)
 
             fh = ffi.fh
             if fh && fh.raw
@@ -313,8 +343,10 @@ module FuseFS
                 else
                     @root.raw_close(path)
                 end
+            else
+                # Probably just had flush called, but no harm calling it again
+                flush(nil,path,ffi)
             end
-
         end
 
         #def chmod(path,mode)
@@ -327,9 +359,7 @@ module FuseFS
             return wrap_context(ctx,__method__,path,actime,modtime) if ctx
 
             #Touch...
-            if @root.respond_to?(:touch)
-                @root.touch(path,modtime)
-            end
+            @root.touch(path,modtime) if @root.respond_to?(:touch)
         end
 
         def unlink(ctx,path)
@@ -338,7 +368,10 @@ module FuseFS
             unless @root.can_delete?(path)
                 raise Errno::EACCES.new(path)
             end
-            @created_files.delete(path) 
+
+            @adj_size = @adj_size - size(path)
+
+            @created_files.delete(path)
             @root.delete(path)
         end
 
@@ -399,12 +432,46 @@ module FuseFS
         #def releasedir(path,ffi)
         #end
 
+        #
         #def fsyncdir(path,meta,ffi)
         #end
 
         # Some random numbers to show with df command
-        #def statfs(path)   
-        #end
+        # bsize preferred block size = 1K unless @root provides something different
+        # frsize = bsize (but apparently unused)
+        # blocks = total number of blocks
+        # bfree = number of free blocks
+        # bavail = bfree if mounted -o allow_other
+        # files = count of all files
+        # ffree - count of free file inode
+        #
+        def statfs(ctx,path)
+            return wrap_context(ctx,__method__,path) if ctx
+            block_size = 1024
+           
+            stats = @root.statistics(path)
+            case stats
+            when Array
+                used_space, used_files, total_space, total_files = stats
+                used_files ||= 0
+                used_space ||= 0
+                total_files ||= used_files
+                total_space ||= used_space
+                result = RFuse::StatVfs.new(
+                  "bsize" => block_size,
+                  "frsize" => block_size,
+                  "blocks" => total_space / block_size,
+                  "bfree" => (total_space - used_space)/block_size,
+                  "bavail" => (total_space - used_space)/block_size,
+                  "files" => total_files,
+                  "ffree" => (total_files - used_files)
+                )
+                return result
+            else
+                #expected to quack like rfuse:statvfs
+                return stats
+            end
+        end
 
     def mounted()
         @root.mounted()
@@ -429,6 +496,10 @@ module FuseFS
 
     def wrap_context(ctx,method,*args)
         self.class.context(ctx) { send(method,nil,*args) }
+    end
+
+    def size(path)
+        @root.respond_to?(:size) ? @root.size(path) : @root.read_file(path).length
     end
 
     end #class RFuseFS

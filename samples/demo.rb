@@ -6,6 +6,9 @@ require 'fusefs/dirlink'
 include FuseFS
 
 root = MetaDir.new
+root.stats.total_space = 1024*1024
+root.stats.total_nodes = 1024
+root.stats.strict = true
 
 class Counter
   def initialize
@@ -51,9 +54,4 @@ root.write_to('/animal',Randwords.new('duck','dog','cat','duck billed platypus',
 
 root.mkdir("/#{ENV['USER']}",FuseFS::DirLink.new(ENV['HOME']))
 
-unless ARGV.length > 0 && File.directory?(ARGV[0])
-  puts "Usage: #{$0} <mountpoint> <mountoptions>"
-  exit
-end
-
-FuseFS.start(root, *ARGV)
+FuseFS.main(ARGV) { | options | root }

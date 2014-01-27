@@ -177,9 +177,12 @@ module FuseFS
         Thread.current[:fusefs_reader_gid]
     end
 
-    # Not supported in RFuseFS (yet). The original FuseFS had special handling for editor
-    # swap/backup but this does not seem to be required, eg for the demo filesystems.
-    # If it is required it can be implemented in a filesystem
+    # Not supported in RFuseFS.
+    #
+    # The original FuseFS had special handling for editor swap/backup files
+    # which appears to be a workaround for a bug where zero length files
+    # where never written to. This "bug" is fixed since RFuseFS 1.0.2
+    #
     # @deprecated
     def self.handle_editor(bool)
         #do nothing

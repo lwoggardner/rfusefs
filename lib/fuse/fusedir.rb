@@ -1,11 +1,68 @@
 module FuseFS
 
+    # Helper for filesystem accounting
+    class StatsHelper
+
+        # @return [Integer] size of filesystem in bytes
+        attr_accessor :max_space
+        # @return [Integer] maximum number of (virtual) inodes
+        attr_accessor :max_nodes
+
+        # If set true, adjustments that cause space/nodes to exceed
+        # the maximums will raise ENOSPC (no space left on device)
+        # @return [Boolean]
+        attr_accessor :strict
+
+        # @return [Integer] used space in bytes
+        attr_reader :space
+
+        # @return [Integer] used inodes (typically count of files and directories)
+        attr_reader :nodes
+
+        #
+        # @param [Integer] max_space
+        # @param [Integer] max_nodes
+        # @param [Booleanr] strict
+        def initialize(max_space=nil,max_nodes=nil,strict=false)
+            @nodes = 0
+            @space = 0
+            @max_space = max_space
+            @max_nodes = max_nodes
+            @strict = strict
+        end
+
+        # Adjust accumlated statistics
+        # @param [Integer] delta_space change in {#space} usage
+        # @param [Integer] delta_nodes change in {#nodes} usage
+        #
+        # @return [void]
+        # @raise [Errno::ENOSPC] if {#strict} and adjusted {#space}/{#nodes} would exceed {#max_space} or {#max_nodes}
+        def adjust(delta_space,delta_nodes=0)
+            @nodes += delta_nodes
+            @space += delta_space
+            raise Errno::ENOSPC if @strict && ( @nodes >  @max_nodes ||  @space > @max_space )
+        end
+
+        # @overload to_statistics()
+        #   @return [Array<Integer>] in format expected by {FuseDir#statistics}
+        # @overload to_statistics(free_space,free_nodes)
+        #   Calculate total space so that free space remains fixed
+        #   @param [Integer] free_space available space in bytes
+        #   @param [Integer] free_nodes available (virtual) inodes
+        #   @return [Array<Integer>] in format expected by {FuseDir#statistics}
+        def to_statistics(free_space=nil,free_nodes=nil)
+            total_space = free_space ? space + free_space : max_space
+            total_nodes = free_nodes ? nodes + free_nodes : max_nodes
+            [ @space, @nodes, total_space, total_nodes ]
+        end
+    end
+
     # This class is equivalent to using Object.new() as the virtual directory
     # for target for {FuseFS.start}. It exists primarily to document the API
-    # but can also be used as a superclass for your filesystem
-    #  
+    # but can also be used as a superclass for your filesystem providing sensible defaults
+    #
     # == Method call sequences
-    # 
+    #
     # === Stat (getattr)
     #
     # FUSE itself will generally stat referenced files and validate the results
@@ -38,10 +95,10 @@ module FuseFS
     # FUSE confirms path for the new file is a directory
     #
     # * {#can_write?} is checked at file open
-    # * {#write_to} is called when the file is flushed or closed
+    # * {#write_to} is called when the file is synced, flushed or closed
     #
-    # See also {#raw_open}, {#raw_truncate}, {#raw_write}, {#raw_close}
-    # 
+    # See also {#raw_open}, {#raw_truncate}, {#raw_write}, {#raw_sync}, {#raw_close}
+    #
     # === Deleting files
     #
     # FUSE confirms path is a file before we call {#can_delete?} then {#delete}
@@ -105,12 +162,12 @@ module FuseFS
 
         # File size
         # @abstract FuseFS api
-        # @return [Fixnum] the size in byte of a file (lots of applications rely on this being accurate )
-        def size(path);return 0;end
+        # @return [Integer] the size in byte of a file (lots of applications rely on this being accurate )
+        def size(path); read_file(path).length ;end
 
         # File time information. RFuseFS extension.
         # @abstract FuseFS api
-        # @return [Array<Fixnum, Time>] a 3 element array [ atime, mtime. ctime ] (good for rsync etc)
+        # @return [Array<Integer, Time>] a 3 element array [ atime, mtime. ctime ] (good for rsync etc)
         def times(path);return INIT_TIMES;end
 
         # @abstract FuseFS api
@@ -176,21 +233,29 @@ module FuseFS
         def raw_open(path,mode,rfusefs = nil);end
 
         # RFuseFS extension.
-        #
-        # Truncate file at path (or filehandle raw) to offset bytes. Called immediately after a file is opened
-        # for write without append.
-        #
-        # This method can also be invoked (without raw) outside of an open file context. See
-        # FUSE documentation on truncate() vs ftruncate()
         # @abstract FuseFS api
-        # @return [void]
-        def raw_truncate(path,off,raw=nil);end
+        #
+        # @overload raw_truncate(path,offset,raw)
+        #  Truncate an open file to offset bytes
+        #  @param [String] path
+        #  @param [Integer] offset
+        #  @param [Object] raw the filehandle returned from {#raw_open}
+        #  @return [void]
+        #
+        # @overload raw_truncate(path,offset)
+        #  Optionally truncate a file to offset bytes directly
+        #  @param [String] path
+        #  @param [Integer] offset
+        #  @return [Boolean]
+        #    if truncate has been performed, otherwise the truncation will be performed with {#read_file} and {#write_to}
+        #
+        def raw_truncate(path,offset,raw=nil);end
 
         # Read _sz_ bytes from file at path (or filehandle raw) starting at offset off
-        # 
+        #
         # @param [String] path
-        # @param [Fixnum] offset
-        # @param [Fixnum] size
+        # @param [Integer] offset
+        # @param [Integer] size
         # @param [Object] raw the filehandle returned by {#raw_open}
         # @abstract FuseFS api
         # @return [void]
@@ -201,17 +266,36 @@ module FuseFS
         # @return [void]
         def raw_write(path,off,sz,buf,raw=nil);end
 
+
+        # Sync buffered data to your filesystem
+        # @param [String] path
+        # @param [Boolena] datasync only sync user data, not metadata
+        # @param [Object] raw the filehandle return by {#raw_open}
+        def raw_sync(path,datasync,raw=nil);end
+
         # Close the file previously opened at path (or filehandle raw)
         # @abstract FuseFS api
         # @return [void]
         def raw_close(path,raw=nil);end
 
         # RFuseFS extension.
-        # Extended attributes. These will be set/retrieved/removed directly
+        # Extended attributes.
         # @param [String] path
-        # @return [Hash] extended attributes for this path
+        # @return [Hash] extended attributes for this path.
+        #   This hash will be manipulated directly so the default
+        #   (a new empty hash on every call) will not retain them
         # @abstract FuseFS api
-        def xattr(path); return {}; end
+        def xattr(path); {} ; end
+
+        # RFuseFS extensions.
+        # File system statistics
+        # @param [String] path
+        # @return [Array<Integer>] the statistics
+        #   used_space (in bytes), used_files, max_space, max_files
+        #   See {StatsHelper}
+        # @return [RFuse::StatVfs] or raw statistics
+        # @abstract FuseFS api
+        def statistics(path); [0,0,0,0]; end
 
         # RFuseFS extension.
         # Called when the filesystem is mounted
