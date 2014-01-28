@@ -27,6 +27,7 @@ module FuseFS
         def initialize(stats = nil)
             @subdirs  = Hash.new(nil)
             @files    = Hash.new(nil)
+            @xattr   = Hash.new() { |h,k| h[k] = Hash.new }
             @stats = stats || StatsHelper.new()
             @stats.adjust(0,1)
         end
@@ -59,6 +60,13 @@ module FuseFS
                 else
                     @subdirs[filename].contents("/")
                 end
+            end
+        end
+
+        # Extended attributes
+        def xattr(path)
+            pathmethod(:xattr,path) do | path |
+               @xattr[path] 
             end
         end
 
@@ -133,7 +141,7 @@ module FuseFS
         def rmdir(path)
             pathmethod(:rmdir,path) do |dirname|
                 @subdirs.delete(dirname)
-                @status.adjust(0,-1)
+                @stats.adjust(0,-1)
             end
         end
 
@@ -150,6 +158,8 @@ module FuseFS
                 if @files.has_key?(from_base)
                     return false unless can_delete?(from_base) && to_fusefs.can_write?(to_path)
                     to_fusefs.write_to(to_path,@files[from_base])
+                    to_fusefs.xattr(to_path).merge!(@xattr[from_base])
+                    @xattr.delete(from_base)
                     @files.delete(from_base)
                 elsif @subdirs.has_key?(from_base)
                     # we don't check can_rmdir? because that would prevent us 
@@ -157,6 +167,8 @@ module FuseFS
                     return false unless mount_user? && to_fusefs.can_mkdir?(to_path)
                     begin
                         to_fusefs.mkdir(to_path,@subdirs[from_base])
+                        to_fusefs.xattr(to_path).merge!(@xattr[from_base])
+                        @xattr.delete(from_base)
                         @subdirs.delete(from_base)
                         @stats.adjust(0,-1)
                         return true

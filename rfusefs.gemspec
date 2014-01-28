@@ -26,4 +26,6 @@ Gem::Specification.new do |s|
   s.add_development_dependency("yard")
   s.add_development_dependency("redcarpet")
   s.add_development_dependency("sqlite3")
+  s.add_development_dependency("sys-filesystem")
+  s.add_development_dependency("ffi-xattr")
 end

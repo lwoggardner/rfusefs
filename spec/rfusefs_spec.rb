@@ -417,7 +417,7 @@ describe FuseFS do
            xattr["user.one"] = "xattr one"
            
            @fuse.getxattr(nil,TEST_FILE,"user.one").should == "xattr one"
-           @fuse.setxattr(nil,TEST_FILE,"user.two","xattr two")
+           @fuse.setxattr(nil,TEST_FILE,"user.two","xattr two",0)
            xattr["user.two"].should == "xattr two"
            @fuse.listxattr(nil,TEST_FILE).should =~ [ "user.one", "user.two" ]
            @fuse.removexattr(nil,TEST_FILE,"user.two")
@@ -427,6 +427,31 @@ describe FuseFS do
         it "should raise ENODATA is no attribute is available" do
             lambda{@fuse.getxattr(nil,TEST_FILE,"user.xxxx") }.should raise_error(Errno::ENODATA)
         end
+    end
+
+    context "#statfs" do
+        # used space, used files, total_space, total_files
+        let(:stats) { [ 1000 * 1024, 5, 1200 * 1024, 12 ] }
+        it "should convert simple array into StatVfs" do
+    
+            @mock_fuse.should_receive(:statistics).with(TEST_FILE).and_return(stats)
+
+            result = @fuse.statfs(nil,TEST_FILE)
+            result.should be_kind_of(RFuse::StatVfs)
+            result.f_bsize.should == 1024
+            result.f_blocks.should == 1200
+            result.f_bavail.should == 200
+            result.f_files.should == 12
+            result.f_ffree.should == 7
+        end
+
+        it "passes on raw statistics" do
+            statvfs = Object.new()
+            @mock_fuse.should_receive(:statistics).with(TEST_FILE).and_return(statvfs)
+
+            @fuse.statfs(nil,TEST_FILE).should equal(statvfs)
+        end
+
     end
   end
   

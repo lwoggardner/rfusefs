@@ -404,8 +404,8 @@ module FuseFS
         #def link(path,as)
         #end
 
-        def setxattr(ctx,path,name,value)
-            return wrap_context(ctx,__method__,path,name,value) if ctx
+        def setxattr(ctx,path,name,value,flags)
+            return wrap_context(ctx,__method__,path,name,value,flags) if ctx
             @root.xattr(path)[name]=value
         end
 

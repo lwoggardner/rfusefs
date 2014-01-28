@@ -1,5 +1,7 @@
 require 'spec_helper'
 require 'tmpdir'
+require 'sys/filesystem'
+require 'ffi-xattr'
 
 describe FuseFS::MetaDir do
   
@@ -37,6 +39,10 @@ describe FuseFS::MetaDir do
       
       it "should indicate the size of a file" do
         @metadir.size("/test/hello/hello.txt").should be "Hello World!\n".length
+      end
+
+      it "should report filesystem statistics" do
+          @metadir.statistics("/").should == [ 13, 5, nil, nil ]
       end
     end
     
@@ -102,6 +108,15 @@ describe FuseFS::MetaDir do
         @metadir.read_file("/test/other/more/hello/hello.txt").should == "Hello World!\n"
       end
 
+      it "should maintain filesystem statistics" do
+        # remove a directory
+        @metadir.rmdir("/test/hello/emptydir")
+
+        # replace text for (the only)  existing file
+        @metadir.write_to("/test/hello/hello.txt","new text")
+        
+        @metadir.statistics("/").should == [ 8, 4, nil, nil ]
+      end
     end
     
     context "with readonly access" do
@@ -216,6 +231,17 @@ describe FuseFS::MetaDir do
         @metadir.rename("/test/aDir","/test/fusefs/newpath/to/dir").should be_false
       end
 
+      it "should pass on #statistics" do
+        @fusefs.should_receive(:statistics).with("/path/to/file")
+
+        @metadir.statistics("test/fusefs/path/to/file")
+      end
+
+      it "should pass on #statistics for root" do
+        @fusefs.should_receive(:statistics).with("/")
+
+        @metadir.statistics("test/fusefs")
+      end
     end
     
   end
@@ -229,6 +255,8 @@ describe FuseFS::MetaDir do
 	before(:all) do
         metadir.mkdir("/test")
         metadir.write_to("/test/hello.txt","Hello World!\n")
+        metadir.xattr("/test/hello.txt")["user.test"] = "an extended attribute"
+        metadir.xattr("/test")["user.test"] = "a dir attribute"
 		FuseFS.mount(metadir,mountpoint)
 		#Give FUSE some time to get started 
 		sleep(0.5)
@@ -248,6 +276,25 @@ describe FuseFS::MetaDir do
         testfile.file?.should be_true
 		testfile.read().should == "Hello World!\n"
     end
+
+    it "should read and write extended attributes from files" do
+        x = Xattr.new(testfile.to_s)
+        x["user.test"].should == "an extended attribute"
+
+        x["user.new"] = "new"
+        
+        Xattr.new(testfile.to_s)["user.new"].should == "new"
+    end
+
+    it "should write extended attributes for directories" do
+        x = Xattr.new(testdir.to_s)
+
+        x["user.test"].should == "a dir attribute"
+        x["user.new"] = "new dir"
+        
+        Xattr.new(testdir.to_s)["user.new"].should == "new dir"
+    end
+
 
     it "should create directories" do
         newdir = testdir + "newdir"
@@ -290,6 +337,28 @@ describe FuseFS::MetaDir do
         movefile.read.should == "Hello World!\n"
     end
 
+
+    it "should report filesystem statistics" do
+        bigfile = testdir + "bigfile"
+        bigfile.open("w") do |file|
+            file << ("x" * 2048)
+        end
+      
+        statfs = Sys::Filesystem.stat(mountpoint.to_s)
+
+        # These are fixed
+        statfs.block_size.should == 1024
+        statfs.fragment_size.should == 1024
+
+        # These are dependant on the tests above creating files/directories
+        statfs.files.should == 8
+        statfs.files_available == 8
+
+        # assume test are less than 1 block, so dependant on bigfile above
+        statfs.blocks.should == 2
+        statfs.blocks_available.should == 0
+        statfs.blocks_free.should == 0
+    end
   end
   
 end
