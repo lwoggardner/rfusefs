@@ -410,21 +410,35 @@ describe FuseFS do
     end
     context "extended attributes" do
 
-        let(:xattr) { {} }
+        let(:xattr) { mock(:xattr) }
         before(:each) { @mock_fuse.stub!(:xattr).with(TEST_FILE).and_return(xattr) }
 
-        it "should get, set and list attributes" do
-           xattr["user.one"] = "xattr one"
-           
-           @fuse.getxattr(nil,TEST_FILE,"user.one").should == "xattr one"
-           @fuse.setxattr(nil,TEST_FILE,"user.two","xattr two",0)
-           xattr["user.two"].should == "xattr two"
-           @fuse.listxattr(nil,TEST_FILE).should =~ [ "user.one", "user.two" ]
-           @fuse.removexattr(nil,TEST_FILE,"user.two")
-           xattr.keys.should =~ [ "user.one" ]
+        it "should list attributes via #keys on result of #xattr" do
+            xattr.should_receive(:keys).and_return(["one","two"])
+            @fuse.listxattr(nil,TEST_FILE).should == [ "one","two" ]
         end
 
-        it "should raise ENODATA is no attribute is available" do
+        it "should get attributes via #xattr.[]" do
+            xattr.should_receive(:[]).with("user.one").and_return("one")
+
+            @fuse.getxattr(nil,TEST_FILE,"user.one").should == "one"
+        end
+
+        it "should set attributes via #xattr.[]=" do
+            xattr.should_receive(:[]=).with("user.two","two")
+
+            @fuse.setxattr(nil,TEST_FILE,"user.two","two",0)
+        end
+
+        it "should remove attributes via #xattr.delete" do
+            xattr.should_receive(:delete).with("user.three")
+
+            @fuse.removexattr(nil,TEST_FILE,"user.three")
+        end
+
+        it "should raise ENODATA when #xattr.[] returns nil" do
+
+            xattr.should_receive(:[]).with("user.xxxx").and_return(nil)
             lambda{@fuse.getxattr(nil,TEST_FILE,"user.xxxx") }.should raise_error(Errno::ENODATA)
         end
     end

@@ -282,8 +282,8 @@ module FuseFS
         # Extended attributes.
         # @param [String] path
         # @return [Hash] extended attributes for this path.
-        #   This hash will be manipulated directly so the default
-        #   (a new empty hash on every call) will not retain them
+        #   The returned object  will be manipulated directly using :[] :[]=,, :keys and :delete
+        #   so the default (a new empty hash on every call) will not retain attributes that are set
         # @abstract FuseFS api
         def xattr(path); {} ; end
 

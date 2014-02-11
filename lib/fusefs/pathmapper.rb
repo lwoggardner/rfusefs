@@ -1,3 +1,4 @@
+require 'ffi-xattr'
 
 module FuseFS
 
@@ -8,7 +9,46 @@ module FuseFS
 
         # Represents a mappted file or directory
         class MNode
-            
+
+            # Merge extended attributes with the ones from the underlying file
+            class XAttr
+
+                attr_reader :node, :file_xattr
+
+                def initialize(node)
+                    @node = node
+                    @file_xattr = ::Xattr.new(node.real_path.to_s) if node.file?
+                end
+
+                def [](key)
+                    additional[key] || (file_xattr && file_xattr[key])
+                end
+
+                def []=(key,value)
+                    raise Errno::EACCES if additional.has_key?(key) || node.directory?
+                    file_xattr[key] = value
+                end
+
+                def delete(key)
+                    raise Errno::EACCES if additional.has_key?(key) || node.directory?
+                    file_xattr.remove(key)
+                end
+
+                def keys
+                    if file_xattr
+                        additional.keys + file_xattr.list
+                    else
+                        additional.keys
+                    end
+                end
+
+
+                def additional
+                    @node[:xattr] || {}
+                end
+
+            end
+
             # @return [Hash<String,MNode>] list of files in a directory, nil for file nodes
             attr_reader :files
 
@@ -84,6 +124,10 @@ module FuseFS
             # Convenience method to set metadata into {#options}
             def[]=(key,value)
                 options[key]=value
+            end
+
+            def xattr
+                @xattr ||= XAttr.new(self)
             end
 
             def deleted
@@ -283,7 +327,7 @@ module FuseFS
 
         # @!visibility private
         def xattr(path)
-            result = node(path).options[:xattr] || {}
+            result = node(path).xattr
         end
 
         # @!visibility private
@@ -365,7 +409,7 @@ module FuseFS
         end
 
         private
-       
+
         def make_node(path)
             #split path into components
             components = path.to_s.scan(/[^\/]+/)
@@ -373,7 +417,7 @@ module FuseFS
                 parent_dir.files[file] ||= MNode.new(parent_dir,@stats)
             }
         end
-        
+
         def recursive_cleanup(dir_node,&block)
             dir_node.files.delete_if do |path,child|
                 del = if child.file?
