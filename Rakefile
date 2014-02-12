@@ -2,6 +2,9 @@
 require "bundler/gem_tasks"
 require 'yard'
 require 'rspec/core/rake_task'
+require 'rake/clean'
+
+CLOBBER.include [ "pkg/","doc/" ]
 
 YARD::Rake::YardocTask.new do |t|
         # Need this because YardocTask does not read the gemspec
