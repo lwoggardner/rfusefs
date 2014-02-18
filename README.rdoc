@@ -3,6 +3,7 @@
 * https://rubygems.org/gems/rfusefs
 * https://github.com/lwoggardner/rfusefs
 
+{<img src="https://badge.fury.io/rb/rfusefs.png" alt="Gem Version" />}[http://badge.fury.io/rb/rfusefs]
 == DESCRIPTION
 
 RFuseFS is a port of the FuseFS[http://rubygems.org/gems/fusefs/]
