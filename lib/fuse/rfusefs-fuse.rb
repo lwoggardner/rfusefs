@@ -93,14 +93,14 @@ module FuseFS
     # Implements RFuseFS
     # The path supplied to these methods is generally validated by FUSE itself
     # with a prior "getattr" call so we do not revalidate here.
-    # http://sourceforge.net/apps/mediawiki/fuse/index.php?title=FuseInvariants       
+    # http://sourceforge.net/apps/mediawiki/fuse/index.php?title=FuseInvariants
     class RFuseFS
         CHECK_FILE="/._rfuse_check_"
 
         def initialize(root)
             @root = root
             @created_files = { }
-            
+
             # Keep track of changes to file counts and sizes made via Fuse - for #statfs
             @adj_nodes = 0
             @adj_size = 0
@@ -123,7 +123,7 @@ module FuseFS
             filler.push(".",nil,0)
             filler.push("..",nil,0)
 
-            files = @root.contents(path) 
+            files = @root.contents(path)
 
             files.each do | filename |
                 filler.push(filename,nil,0)
@@ -263,7 +263,7 @@ module FuseFS
                     raise Errno::ENOPERM.new(path)
                 end
             end
-            
+
             #If we get this far, save our filehandle in the FUSE structure
             ffi.fh=fh
         end
@@ -304,7 +304,7 @@ module FuseFS
                 return fh.write(offset,buf)
             end
         end
-        
+
         def fsync(ctx,path,datasync,ffi)
             return wrap_context(ctx,__method__,path,datasync,ffi) if ctx
             fh = ffi.fh
@@ -343,6 +343,8 @@ module FuseFS
                 else
                     @root.raw_close(path)
                 end
+                # if was handled as raw, then assume the file has now been created (or not)
+                @created_files.delete(path)
             else
                 # Probably just had flush called, but no harm calling it again
                 flush(nil,path,ffi)
@@ -448,7 +450,7 @@ module FuseFS
         def statfs(ctx,path)
             return wrap_context(ctx,__method__,path) if ctx
             block_size = 1024
-           
+
             stats = @root.statistics(path)
             case stats
             when Array
