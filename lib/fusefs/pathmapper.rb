@@ -1,6 +1,12 @@
-require 'ffi-xattr'
 
 module FuseFS
+  begin
+    require 'ffi-xattr'
+    HAS_FFI_XATTR = true
+  rescue LoadError
+    warn "ffi-xattr not available, extended attributes will not be mapped"
+    HAS_FFI_XATTR = false
+  end
 
     # A FuseFS that maps files from their original location into a new path
     # eg tagged audio files can be mapped by title etc...
@@ -17,7 +23,7 @@ module FuseFS
 
                 def initialize(node)
                     @node = node
-                    @file_xattr = ::Xattr.new(node.real_path.to_s) if node.file?
+                    @file_xattr = ::Xattr.new(node.real_path.to_s) if node.file? && HAS_FFI_XATTR
                 end
 
                 def [](key)
@@ -26,12 +32,12 @@ module FuseFS
 
                 def []=(key,value)
                     raise Errno::EACCES if additional.has_key?(key) || node.directory?
-                    file_xattr[key] = value
+                    file_xattr[key] = value if file_xattr
                 end
 
                 def delete(key)
                     raise Errno::EACCES if additional.has_key?(key) || node.directory?
-                    file_xattr.remove(key)
+                    file_xattr.remove(key) if file_xattr
                 end
 
                 def keys
@@ -173,12 +179,12 @@ module FuseFS
         #
         # @return [StatsHelper] accumulated filesystem statistics
         attr_reader :stats
-        
+
         # Creates a new Path Mapper filesystem over an existing directory
         # @param [String] dir
         # @param [Hash] options
         # @yieldparam [String] file path to map
-        # @yieldreturn [String] 
+        # @yieldreturn [String]
         # @see #initialize
         # @see #map_directory
         def PathMapperFS.create(dir,options={ },&block)
@@ -201,7 +207,7 @@ module FuseFS
             @use_raw_file_access = options[:use_raw_file_access]
             @allow_write = options[:allow_write]
         end
-        
+
         # Recursively find all files and map according to the given block
         # @param [String...] dirs directories to list
         # @yieldparam [String] file path to map
@@ -250,14 +256,14 @@ module FuseFS
             node = node(path)
             (node && node.file?) ? node.real_path : nil
         end
-        
+
         # Deletes files and directories.
         # Yields each {#node} in the filesystem and deletes it if the block returns true
         #
         # Useful if your filesystem is periodically remapping the entire contents and you need
         # to delete entries that have not been touched in the latest scan
         #
-        # @yieldparam [Hash] filesystem node 
+        # @yieldparam [Hash] filesystem node
         # @yieldreturn [true,false] should this node be deleted
         def cleanup(&block)
            recursive_cleanup(@root,&block) 
