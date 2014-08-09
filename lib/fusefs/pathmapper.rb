@@ -112,10 +112,10 @@ module FuseFS
             end
 
             # Compatibility and convenience method
-            # @param [:pm_real_path,String,Symbol] key 
-            # @return [String] {#real_path} if key == :pm_real_path 
+            # @param [:pm_real_path,String,Symbol] key
+            # @return [String] {#real_path} if key == :pm_real_path
             # @return [MNode] the node representing the file named key
-            # @return [Object] shortcut for {#options}[key] 
+            # @return [Object] shortcut for {#options}[key]
             def[](key)
                 case key
                 when :pm_real_path
@@ -266,7 +266,7 @@ module FuseFS
         # @yieldparam [Hash] filesystem node
         # @yieldreturn [true,false] should this node be deleted
         def cleanup(&block)
-           recursive_cleanup(@root,&block) 
+           recursive_cleanup(@root,&block)
         end
 
 
@@ -379,7 +379,7 @@ module FuseFS
             file.sysseek(offset)
             file.syswrite(buf[0,sz])
         end
-        
+
         # @!visibility private
         def raw_sync(path,datasync,file=nil)
             file = @openfiles[path] unless file
@@ -393,7 +393,7 @@ module FuseFS
         # @!visibility private
         def raw_close(path,file=nil)
             file = @openfiles.delete(path) unless file
-           
+
             if file && !file.closed?
                 begin
                     flags = file.fcntl(Fcntl::F_GETFL) & Fcntl::O_ACCMODE

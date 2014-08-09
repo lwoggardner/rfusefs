@@ -6,8 +6,8 @@ require 'fusefs/dirlink'
 include FuseFS
 
 root = MetaDir.new
-root.stats.total_space = 1024*1024
-root.stats.total_nodes = 1024
+root.stats.max_space = 1024*1024
+root.stats.max_nodes = 1024
 root.stats.strict = true
 
 class Counter

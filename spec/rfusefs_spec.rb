@@ -7,9 +7,9 @@ describe FuseFS do
   ROOT_PATH = "/"
   Struct.new("FuseFileInfo",:flags,:fh)
 
-  describe "an empty FuseFS object" do
+  describe "an empty Root object" do
     before(:each) do
-      @fuse = FuseFS::RFuseFS.new(Object.new())
+      @fuse = FuseFS::Fuse::Root.new(Object.new())
     end
 
     it "should return an appropriate Stat for the root directory" do
@@ -40,7 +40,15 @@ describe FuseFS do
   describe "a FuseFS filesystem" do
     before(:each) do
       @mock_fuse = FuseFS::FuseDir.new()
-      @fuse = FuseFS::RFuseFS.new(@mock_fuse)
+      @fuse = FuseFS::Fuse::Root.new(@mock_fuse)
+    end
+
+    context("handling signals") do
+      it "should pass on signals" do
+        @mock_fuse.should_receive(:sighup) { }
+        fuse = FuseFS::Fuse::Root.new(@mock_fuse)
+        fuse.sighup
+      end
     end
 
     describe :readdir do
@@ -68,7 +76,7 @@ describe FuseFS do
           before(:each) do
             @mock_fuse.stub!(:file?).and_return(false)
             @mock_fuse.should_receive(:directory?).with(dir).at_most(:once).and_return(true)
-            @checkfile =  (dir == "/" ? "" : dir ) + FuseFS::RFuseFS::CHECK_FILE
+            @checkfile =  (dir == "/" ? "" : dir ) + FuseFS::Fuse::Root::CHECK_FILE
           end
 
           it "should return a Stat like object representing a directory" do

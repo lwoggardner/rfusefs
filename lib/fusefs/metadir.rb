@@ -1,7 +1,7 @@
 module FuseFS
 
     # A full in-memory filesystem defined with hashes. It is writable to the
-    # user that mounted it 
+    # user that mounted it
     # may create and edit files within it, as well as the programmer
     # === Usage
     #   root = Metadir.new()
@@ -14,10 +14,10 @@ module FuseFS
     # Because Metadir is fully recursive, you can mount your own or other defined
     # directory structures under it. For example, to mount a dictionary filesystem
     # (see samples/dictfs.rb), use:
-    #   
+    #
     #   root.mkdir("/dict",DictFS.new())
-    # 
-    class MetaDir 
+    #
+    class MetaDir
 
         DEFAULT_FS = FuseDir.new()
 
@@ -66,7 +66,7 @@ module FuseFS
         # Extended attributes
         def xattr(path)
             pathmethod(:xattr,path) do | path |
-               @xattr[path] 
+               @xattr[path]
             end
         end
 

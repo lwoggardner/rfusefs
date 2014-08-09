@@ -4,9 +4,9 @@ require 'sys/filesystem'
 require 'ffi-xattr'
 
 describe FuseFS::MetaDir do
-  
+
   context "in ruby" do
-    
+
     before(:each) do
       @metadir = FuseFS::MetaDir.new()
       @metadir.mkdir("/test")
@@ -14,14 +14,14 @@ describe FuseFS::MetaDir do
       @metadir.mkdir("/test/hello/emptydir")
       @metadir.write_to("/test/hello/hello.txt","Hello World!\n")
     end
-    
+
     context "general directory methods" do
       it "should list directory contents" do
         @metadir.contents("/").should =~ [ "test" ]
         @metadir.contents("/test").should =~ [ "hello" ]
         @metadir.contents("/test/hello").should =~ ["hello.txt", "emptydir" ]
       end
-      
+
       it "should indicate paths which are/are not directories" do
         @metadir.directory?("/test").should be_true
         @metadir.directory?("/test/hello").should be_true
@@ -29,14 +29,14 @@ describe FuseFS::MetaDir do
         @metadir.directory?("/nodir").should be_false
         @metadir.directory?("/test/nodir").should be_false
       end
-      
+
       it "should indicate paths which are/are not files" do
         @metadir.file?("/test").should be_false
         @metadir.file?("/test/nodir").should be_false
         @metadir.file?("/test/hello").should be_false
         @metadir.file?("/test/hello/hello.txt").should be_true
       end
-      
+
       it "should indicate the size of a file" do
         @metadir.size("/test/hello/hello.txt").should be "Hello World!\n".length
       end
@@ -45,52 +45,52 @@ describe FuseFS::MetaDir do
           @metadir.statistics("/").should == [ 13, 5, nil, nil ]
       end
     end
-    
+
     context "with write access" do
-      
+
       around(:each) do |example|
-        FuseFS::RFuseFS.context(fuse_context(),&example)
+        FuseFS::Fuse::Root.context(fuse_context(),&example)
       end
-      
+
       before(:each) do
         FuseFS::reader_uid.should == Process.uid
         FuseFS::reader_gid.should == Process.gid
       end
-      
-      
+
+
       it "should allow directory creation" do
         @metadir.can_mkdir?("/test/otherdir").should be_true
       end
-      
+
       it "should allow file creation and update" do
         @metadir.can_write?("/test/hello/newfile").should be_true
         @metadir.can_write?("/test/hello/hello.txt").should be_true
       end
-      
+
       it "should read files" do
         @metadir.read_file("/test/hello/hello.txt").should == "Hello World!\n"
       end
-      
+
       it "should update existing files" do
         @metadir.write_to("/test/hello/hello.txt","new contents")
         @metadir.read_file("/test/hello/hello.txt").should == "new contents"
       end
-      
+
       it "should not allow deletion of non empty directories" do
         @metadir.can_rmdir?("/test/hello").should be_false
       end
-      
+
       it "should delete directories" do
         @metadir.rmdir("/test/hello/emptydir")
         @metadir.contents("/test/hello").should =~ ["hello.txt"]
       end
-      
+
       it "should allow and delete files" do
         @metadir.can_delete?("/test/hello/hello.txt").should be_true
         @metadir.delete("/test/hello/hello.txt")
         @metadir.contents("/test/hello").should =~ ["emptydir"]
       end
-      
+
       it "should move directories at same level" do
         before = @metadir.contents("/test/hello")
         @metadir.rename("/test/hello","/test/moved").should be_true
@@ -114,40 +114,40 @@ describe FuseFS::MetaDir do
 
         # replace text for (the only)  existing file
         @metadir.write_to("/test/hello/hello.txt","new text")
-        
+
         @metadir.statistics("/").should == [ 8, 4, nil, nil ]
       end
     end
-    
+
     context "with readonly access" do
       around(:each) do |example|
         #Simulate a different userid..
-        FuseFS::RFuseFS.context(fuse_context(-1,-1),&example)
+        FuseFS::Fuse::Root.context(fuse_context(-1,-1),&example)
       end
-      
+
       before(:each) do
         FuseFS::reader_uid.should_not == Process.uid
         FuseFS::reader_gid.should_not == Process.gid
       end
-      
+
       it "should not allow directory creation" do
         @metadir.can_mkdir?("/test/anydir").should be_false
         @metadir.can_mkdir?("/test/hello/otherdir").should be_false
       end
-      
+
       it "should not allow file creation or write access" do
         @metadir.can_write?("/test/hello/hello.txt").should be_false
         @metadir.can_write?("/test/hello/newfile").should be_false
       end
-      
+
       it "should not allow file deletion" do
         @metadir.can_delete?("/test/hello/hello.txt").should be_false
       end
-      
+
       it "should not allow directory deletion" do
         @metadir.can_rmdir?("/test/emptydir").should be_false
       end
-      
+
       it "should not allow directory renames" do
         @metadir.rename("/test/emptydir","/test/otherdir").should be_false
         #TODO and make sure it doesn't rename
@@ -158,10 +158,10 @@ describe FuseFS::MetaDir do
         #TODO and make sure it doesn't rename
       end
     end
-    
+
     context "with subdirectory containing another FuseFS" do
       around(:each) do |example|
-        FuseFS::RFuseFS.context(fuse_context(),&example)
+        FuseFS::Fuse::Root.context(fuse_context(),&example)
       end
 
       before(:each) do
@@ -179,7 +179,7 @@ describe FuseFS::MetaDir do
              @metadir.send(method,"/test/fusefs/path/to/file",*args)
           end
       end
-     
+
       it "should pass on :write_to" do
          @fusefs.should_receive(:write_to).with("/path/to/file","new contents\n")
          @metadir.write_to("/test/fusefs/path/to/file","new contents\n")
@@ -243,7 +243,7 @@ describe FuseFS::MetaDir do
         @metadir.statistics("test/fusefs")
       end
     end
-    
+
   end
   context "in a mounted FUSE filesystem" do
 
@@ -258,16 +258,16 @@ describe FuseFS::MetaDir do
         metadir.xattr("/test/hello.txt")["user.test"] = "an extended attribute"
         metadir.xattr("/test")["user.test"] = "a dir attribute"
 		FuseFS.mount(metadir,mountpoint)
-		#Give FUSE some time to get started 
+		#Give FUSE some time to get started
 		sleep(0.5)
 	end
-	
+
 	after(:all) do
 		FuseFS.unmount(mountpoint)
         sleep(0.5)
         FileUtils.rm_r(mountpoint)
 	end
-	
+
     it "should list directory contents" do
 		testdir.entries().should =~ pathnames(".","..","hello.txt")
     end
@@ -282,7 +282,7 @@ describe FuseFS::MetaDir do
         x["user.test"].should == "an extended attribute"
 
         x["user.new"] = "new"
-        
+
         Xattr.new(testfile.to_s)["user.new"].should == "new"
     end
 
@@ -291,7 +291,7 @@ describe FuseFS::MetaDir do
 
         x["user.test"].should == "a dir attribute"
         x["user.new"] = "new dir"
-        
+
         Xattr.new(testdir.to_s)["user.new"].should == "new dir"
     end
 
@@ -323,7 +323,7 @@ describe FuseFS::MetaDir do
         movedir.directory?.should be_false
         fromdir.rename(movedir)
         movedir.directory?.should be_true
-        
+
         subfile = movedir + "afile"
         subfile.file?.should be_true
         subfile.read.should == "testfile\n"
@@ -343,7 +343,7 @@ describe FuseFS::MetaDir do
         bigfile.open("w") do |file|
             file << ("x" * 2048)
         end
-      
+
         statfs = Sys::Filesystem.stat(mountpoint.to_s)
 
         # These are fixed
@@ -360,5 +360,5 @@ describe FuseFS::MetaDir do
         statfs.blocks_free.should == 0
     end
   end
-  
+
 end

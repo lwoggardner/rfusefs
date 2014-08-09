@@ -15,7 +15,7 @@ module FuseFS
         # Maintains a count of the number of times through the scan loop
         attr_reader :scan_id
 
-        # 
+        #
         #
         # @param [String] db_path Path to Sqlite database
         # @param [String] sql query
@@ -55,7 +55,7 @@ module FuseFS
         end
 
         # FuseFS callback when filesystem is unmounted
-        # 
+        #
         # Stops the database watching threads
         # @api FuseFS
         def unmounted()
@@ -86,6 +86,11 @@ module FuseFS
                 end
             end
             cleanup() { |file_node| file_node.options[:sqlite_scan_id] != @scan_id }
+        end
+
+        # Rescan on HUP signal
+        def sighup
+          rescan()
         end
 
         private
