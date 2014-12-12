@@ -62,7 +62,7 @@ Happy Filesystem Hacking!
 
 == REQUIREMENTS:
 
-* FUSE (http://fuse.sourceforge.org)
+* FUSE (http://fuse.sourceforge.net)
 * Ruby (>=1.9)
 * rfuse (~> 1.0)
 
