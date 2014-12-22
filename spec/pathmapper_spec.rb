@@ -72,41 +72,41 @@ describe FuseFS::PathMapperFS do
     context "fusefs api" do
 
         it "maps files and directories" do
-            pathmap_fs.directory?("/").should be_true
-            pathmap_fs.directory?("/textfiles").should be_true
-            pathmap_fs.directory?("/pictures/201103").should be_true
-            pathmap_fs.file?("/textfiles/hello").should be_true
-            pathmap_fs.directory?("/textfiles/hello").should be_false
-            pathmap_fs.file?("/artist/album/mysong.mp3").should be_true
-            pathmap_fs.directory?("/artist/album/mysong.mp3").should be_false
-            pathmap_fs.file?("/some/unknown/path").should be_false
-            pathmap_fs.directory?("/some/unknown/path").should be_false
+            expect(pathmap_fs.directory?("/")).to be_truthy
+            expect(pathmap_fs.directory?("/textfiles")).to be_truthy
+            expect(pathmap_fs.directory?("/pictures/201103")).to be_truthy
+            expect(pathmap_fs.file?("/textfiles/hello")).to be_truthy
+            expect(pathmap_fs.directory?("/textfiles/hello")).to be_falsey
+            expect(pathmap_fs.file?("/artist/album/mysong.mp3")).to be_truthy
+            expect(pathmap_fs.directory?("/artist/album/mysong.mp3")).to be_falsey
+            expect(pathmap_fs.file?("/some/unknown/path")).to be_falsey
+            expect(pathmap_fs.directory?("/some/unknown/path")).to be_falsey
         end
 
         it "lists the mapped contents of directories" do
-            pathmap_fs.contents("/").should =~ [ "textfiles","artist","pictures" ]
-            pathmap_fs.contents("/artist").should =~ [ "album" ]
-            pathmap_fs.contents("/textfiles").should =~ [ "hello" ]
+            expect(pathmap_fs.contents("/")).to match_array([ "textfiles","artist","pictures" ])
+            expect(pathmap_fs.contents("/artist")).to match_array([ "album" ])
+            expect(pathmap_fs.contents("/textfiles")).to match_array([ "hello" ])
         end
 
         it "reports the size of a file" do
-            pathmap_fs.size("/textfiles/hello").should == 16
+            expect(pathmap_fs.size("/textfiles/hello")).to eq(16)
         end
 
         it "reads the contents of a file" do
-            pathmap_fs.read_file("/textfiles/hello").should == "/textfiles/hello"
+            expect(pathmap_fs.read_file("/textfiles/hello")).to eq("/textfiles/hello")
         end
 
         it "does not allow writes" do
-            pathmap_fs.can_write?("/textfiles/hello").should be_false
+            expect(pathmap_fs.can_write?("/textfiles/hello")).to be_falsey
         end
 
         it "reports the atime,mtime and ctime of the mapped file" do
             atime,mtime,ctime = pathmap_fs.times("/pictures/201103/apicture.jpg")
             picture = tmpdir + "apicture.jpeg"
-            atime.should == picture.atime()
-            mtime.should == picture.mtime()
-            ctime.should == picture.ctime()
+            expect(atime).to eq(picture.atime())
+            expect(mtime).to eq(picture.mtime())
+            expect(ctime).to eq(picture.ctime())
         end
 
         context "with extended attributes" do
@@ -130,62 +130,62 @@ describe FuseFS::PathMapperFS do
             end
 
             it "should list extended attributes" do
-                pm_file_xattr.keys.should include("user.file_attr")
-                pm_file_xattr.keys.should include("user.add_attr")
-                pm_file_xattr.keys.size.should == 2
+                expect(pm_file_xattr.keys).to include("user.file_attr")
+                expect(pm_file_xattr.keys).to include("user.add_attr")
+                expect(pm_file_xattr.keys.size).to eq(2)
             end
 
             it "should read extended attributes from underlying file" do
-                pm_file_xattr["user.file_attr"].should == "fileValue"
+                expect(pm_file_xattr["user.file_attr"]).to eq("fileValue")
             end
 
             it "should read additional attributes" do
                 # make sure additional attributes are not on the real file
-                hello_xattr.list.should_not include("user.add_attr")
+                expect(hello_xattr.list).not_to include("user.add_attr")
 
-                pm_file_xattr["user.add_attr"].should == "addValue"
+                expect(pm_file_xattr["user.add_attr"]).to eq("addValue")
             end
 
             it "should write extended attributes to the underlying file" do
                 pm_file_xattr["user.file_attr"] = "written"
-                hello_xattr["user.file_attr"].should == "written"
+                expect(hello_xattr["user.file_attr"]).to eq("written")
             end
 
             it "should remove extended attributes from the underlying file" do
                 pm_file_xattr.delete("user.file_attr")
-                hello_xattr.list.should_not include("user.file_attr")
+                expect(hello_xattr.list).not_to include("user.file_attr")
             end
 
             it "raise EACCES when writing to additional attributes" do
-                lambda {pm_file_xattr["user.add_attr"] = "newValue"}.should raise_error(Errno::EACCES)
+                expect {pm_file_xattr["user.add_attr"] = "newValue"}.to raise_error(Errno::EACCES)
             end
 
             it "raise EACCES when removing additional attributes" do
-                lambda {pm_file_xattr.delete("user.add_attr")}.should raise_error(Errno::EACCES)
+                expect {pm_file_xattr.delete("user.add_attr")}.to raise_error(Errno::EACCES)
             end
 
             it "should list additional attributes from virtual directories" do
-                pm_dir_xattr.keys.should include("user.dir_attr")
-                pm_dir_xattr.keys.size.should == 1
+                expect(pm_dir_xattr.keys).to include("user.dir_attr")
+                expect(pm_dir_xattr.keys.size).to eq(1)
             end
 
             it "should read additional attributes from virtual directories" do
-                pm_dir_xattr["user.dir_attr"].should == "dirValue"
+                expect(pm_dir_xattr["user.dir_attr"]).to eq("dirValue")
 
             end
 
             it "should raise EACCES when writing additional attributes on virtual directories" do
-                lambda {pm_dir_xattr["user.dir_attr"] = "newValue"}.should raise_error(Errno::EACCES)
+                expect {pm_dir_xattr["user.dir_attr"] = "newValue"}.to raise_error(Errno::EACCES)
             end
 
             it "should raise EACCES when deleting additional attributes on virtual directories" do
-                lambda {pm_dir_xattr.delete("user.dir_attr")}.should raise_error(Errno::EACCES)
+                expect {pm_dir_xattr.delete("user.dir_attr")}.to raise_error(Errno::EACCES)
             end
 
             it "should accept xattr as option to #map_file" do
                 fixture.pathmap("mapped_xattr.txt","/textfiles/mapped_xattr","content",
                                  :xattr => { "user.xattr" => "map_file" })
-                pathmap_fs.xattr("/textfiles/mapped_xattr")["user.xattr"].should == "map_file"
+                expect(pathmap_fs.xattr("/textfiles/mapped_xattr")["user.xattr"]).to eq("map_file")
             end
         end
 
@@ -193,10 +193,10 @@ describe FuseFS::PathMapperFS do
 
             it "reports accumulated stats about mapped files" do
                 used_space, used_nodes, max_space, max_nodes = pathmap_fs.statistics("/pictures/201103/apicture.jpg")
-                used_space.should == 69
-                used_nodes.should == 9
-                max_space.should be_nil
-                max_nodes.should be_nil
+                expect(used_space).to eq(69)
+                expect(used_nodes).to eq(9)
+                expect(max_space).to be_nil
+                expect(max_nodes).to be_nil
             end
         end
 
@@ -208,20 +208,20 @@ describe FuseFS::PathMapperFS do
 
             it "updates the contents of the real file" do
                 hello_path = tmpdir + "hello.txt"
-                hello_path.read.should == "updated content"
+                expect(hello_path.read).to eq("updated content")
             end
 
             it "updates the contents of the mapped file" do
-                pathmap_fs.read_file("textfiles/hello").should == "updated content"
+                expect(pathmap_fs.read_file("textfiles/hello")).to eq("updated content")
             end
 
             it "changes the reported file size" do
-                pathmap_fs.size("textfiles/hello").should == 15
+                expect(pathmap_fs.size("textfiles/hello")).to eq(15)
             end
 
             it "changes the filesystem statistics" do
                 used_space, used_nodes, max_space, max_nodes = pathmap_fs.statistics("/pictures/201103/apicture.jpg")
-                used_space.should == 68
+                expect(used_space).to eq(68)
             end
         end
 
@@ -233,12 +233,12 @@ describe FuseFS::PathMapperFS do
         end
 
         it "maps files and directories" do
-            (mountpoint + "textfiles").directory?.should be_true
-            (mountpoint + "textfiles/hello").file?.should be_true
+            expect((mountpoint + "textfiles").directory?).to be_truthy
+            expect((mountpoint + "textfiles/hello").file?).to be_truthy
         end
 
         it "lists the mapped contents of directories" do
-            (mountpoint + "textfiles").entries.should =~ pathnames(".","..","hello")
+            expect((mountpoint + "textfiles").entries).to match_array(pathnames(".","..","hello"))
         end
 
         it "represents the stat information of the underlying files" do
@@ -246,15 +246,15 @@ describe FuseFS::PathMapperFS do
             realpath=(tmpdir + "hello.txt")
             mappedstat = hellopath.stat
             realstat = realpath.stat
-            mappedstat.size.should == realstat.size
-            mappedstat.atime.should == realstat.atime
-            mappedstat.mtime.should == realstat.mtime
-            mappedstat.ctime.should == realstat.ctime
+            expect(mappedstat.size).to eq(realstat.size)
+            expect(mappedstat.atime).to eq(realstat.atime)
+            expect(mappedstat.mtime).to eq(realstat.mtime)
+            expect(mappedstat.ctime).to eq(realstat.ctime)
         end
 
         it "reads the files" do
             hellopath= mountpoint + "textfiles/hello"
-            hellopath.read.should == "/textfiles/hello"
+            expect(hellopath.read).to eq("/textfiles/hello")
         end
 
         it "writes the files" do
@@ -263,8 +263,8 @@ describe FuseFS::PathMapperFS do
             hellopath.open("w") do |f|
                 f.print "updated content"
             end
-            hellopath.read.should == "updated content"
-            real_path.read.should == "updated content"
+            expect(hellopath.read).to eq("updated content")
+            expect(real_path.read).to eq("updated content")
         end
 
         context "extended attributes" do
@@ -288,52 +288,52 @@ describe FuseFS::PathMapperFS do
             end
 
             it "should list extended attributes" do
-                file_xattr.list.should include("user.file_attr")
-                file_xattr.list.should include("user.add_attr")
-                file_xattr.list.size.should == 2
+                expect(file_xattr.list).to include("user.file_attr")
+                expect(file_xattr.list).to include("user.add_attr")
+                expect(file_xattr.list.size).to eq(2)
             end
 
             it "should read extended attributes from underlying file" do
-                file_xattr["user.file_attr"].should == "fileValue"
+                expect(file_xattr["user.file_attr"]).to eq("fileValue")
             end
 
             it "should read additional attributes" do
-                file_xattr["user.add_attr"].should == "addValue"
+                expect(file_xattr["user.add_attr"]).to eq("addValue")
             end
 
             it "should write extended attributes to the underlying file" do
                 file_xattr["user.file_attr"] = "written"
-                hello_xattr["user.file_attr"].should == "written"
+                expect(hello_xattr["user.file_attr"]).to eq("written")
             end
 
             it "should remove extended attributes from the underlying file" do
                 file_xattr.remove("user.file_attr")
-                hello_xattr.list.should_not include("user.file_attr")
+                expect(hello_xattr.list).not_to include("user.file_attr")
             end
 
             it "raise EACCES when writing to additional attributes" do
-                lambda {file_xattr["user.add_attr"] = "newValue"}.should raise_error(Errno::EACCES)
+                expect {file_xattr["user.add_attr"] = "newValue"}.to raise_error(Errno::EACCES)
             end
 
             it "raise EACCES when removing additional attributes" do
-                lambda {file_xattr.remove("user.add_attr")}.should raise_error(Errno::EACCES)
+                expect {file_xattr.remove("user.add_attr")}.to raise_error(Errno::EACCES)
             end
 
             it "should list additional attributes from virtual directories" do
-                dir_xattr.list.should include("user.dir_attr")
-                dir_xattr.list.size.should == 1
+                expect(dir_xattr.list).to include("user.dir_attr")
+                expect(dir_xattr.list.size).to eq(1)
             end
 
             it "should read additional attributes from virtual directories" do
-                dir_xattr["user.dir_attr"].should == "dirValue"
+                expect(dir_xattr["user.dir_attr"]).to eq("dirValue")
             end
 
             it "should raise EACCES when writing additional attributes on virtual directories" do
-                lambda {dir_xattr["user.dir_attr"] = "newValue"}.should raise_error(Errno::EACCES)
+                expect {dir_xattr["user.dir_attr"] = "newValue"}.to raise_error(Errno::EACCES)
             end
 
             it "should raise EACCES when deleting additional attributes on virtual directories" do
-                lambda {dir_xattr.remove("user.dir_attr")}.should raise_error(Errno::EACCES)
+                expect {dir_xattr.remove("user.dir_attr")}.to raise_error(Errno::EACCES)
             end
 
         end
@@ -346,25 +346,25 @@ describe FuseFS::PathMapperFS do
             it "reports stats for files" do
                 statfs = Sys::Filesystem.stat(mountpoint.to_path)
                 # These are fixed
-                statfs.block_size.should == 1024
-                statfs.fragment_size.should == 1024
+                expect(statfs.block_size).to eq(1024)
+                expect(statfs.fragment_size).to eq(1024)
 
                 # These are dependant on the tests above creating files/directories
-                statfs.files.should == 10
+                expect(statfs.files).to eq(10)
                 statfs.files_available == 10
 
                 # assume test are less than 1 block, so dependant on bigfile above
-                statfs.blocks.should == 2
-                statfs.blocks_available.should == 0
-                statfs.blocks_free.should == 0
+                expect(statfs.blocks).to eq(2)
+                expect(statfs.blocks_available).to eq(0)
+                expect(statfs.blocks_free).to eq(0)
             end
 
             it "reports stats for files after writing" do
 
                 (mountpoint + "textfiles/bigfile").open("w") { |f| f.print("y" * 4096) }
                 statfs = Sys::Filesystem.stat(mountpoint.to_path)
-                statfs.files.should == 10
-                statfs.blocks.should == 4
+                expect(statfs.files).to eq(10)
+                expect(statfs.blocks).to eq(4)
 
             end
 
@@ -382,12 +382,12 @@ describe FuseFS::PathMapperFS do
             hello_path = (mountpoint + "textfiles/hello")
             hello_path.open do |f|
                 f.seek(2)
-                f.read(3).should == "ext"
+                expect(f.read(3)).to eq("ext")
             end
 
             hello_path.sysopen do |f|
                 f.sysseek(1)
-                f.sysread(3).should == "tex"
+                expect(f.sysread(3)).to eq("tex")
             end
         end
 
@@ -398,10 +398,10 @@ describe FuseFS::PathMapperFS do
                 f.sysseek(2)
                 f.syswrite("zzz")
                 f.sysseek(0)
-                f.sysread(6).should == "/tzzzf"
+                expect(f.sysread(6)).to eq("/tzzzf")
             end
 
-            real_path.read.should == "/tzzzfiles/hello"
+            expect(real_path.read).to eq("/tzzzfiles/hello")
         end
 
         it "reports filesystem statistics after raw write" do
@@ -411,7 +411,7 @@ describe FuseFS::PathMapperFS do
             end
 
             statfs = Sys::Filesystem.stat(mountpoint.to_path)
-            statfs.blocks.should == 2
+            expect(statfs.blocks).to eq(2)
         end
     end
 end

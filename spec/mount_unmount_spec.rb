@@ -10,8 +10,8 @@ describe "a mounted FuseFS" do
 
     it "should get mounted and unmounted callbacks" do
         mock_fs = FuseFS::FuseDir.new()
-        mock_fs.should_receive(:mounted)
-        mock_fs.should_receive(:unmounted)
+        expect(mock_fs).to receive(:mounted)
+        expect(mock_fs).to receive(:unmounted)
 
         t = Thread.new { sleep 0.5 ; puts "exiting" ; FuseFS.exit }
         FuseFS.start(mock_fs,mountpoint)

@@ -87,14 +87,14 @@ describe "SqliteMapper" do
         end
 
         it "should map files from a sqlite database" do
-            fs.directory?("/").should be_true
-            fs.directory?("/textfiles").should be_true
-            fs.directory?("/pictures/201103").should be_true
-            fs.file?("/textfiles/hello").should be_true
-            fs.directory?("/textfiles/hello").should be_false
-            fs.file?("/artist/album/mysong.mp3").should be_true
-            fs.directory?("/artist/album/mysong.mp3").should be_false
-            fs.file?("/some/unknown/path").should be_false
+            expect(fs.directory?("/")).to be_truthy
+            expect(fs.directory?("/textfiles")).to be_truthy
+            expect(fs.directory?("/pictures/201103")).to be_truthy
+            expect(fs.file?("/textfiles/hello")).to be_truthy
+            expect(fs.directory?("/textfiles/hello")).to be_falsey
+            expect(fs.file?("/artist/album/mysong.mp3")).to be_truthy
+            expect(fs.directory?("/artist/album/mysong.mp3")).to be_falsey
+            expect(fs.file?("/some/unknown/path")).to be_falsey
         end
 
         context "an updated database" do
@@ -103,15 +103,15 @@ describe "SqliteMapper" do
                 fixture.pathmap("added.txt","/textfiles/added.txt")
                 fixture.db_force_write()
                 fs.rescan; sleep(0.3)
-                fs.file?("/textfiles/added.txt").should be_true
+                expect(fs.file?("/textfiles/added.txt")).to be_truthy
             end
 
             it "should remove files and directories no longer mapped" do
                 fixture.unpathmap("/textfiles/hello")
                 fixture.db_force_write()
                 fs.rescan; sleep(0.3)
-                fs.file?("/textfiles/hello").should be_false
-                fs.directory?("/textfiles").should be_false
+                expect(fs.file?("/textfiles/hello")).to be_falsey
+                expect(fs.directory?("/textfiles")).to be_falsey
             end
         end
 
@@ -126,7 +126,7 @@ describe "SqliteMapper" do
 
                 hello_path = (@mountpoint + "textfiles/hello")
                 hello_path.open do |f|
-                    f.read.should == "/textfiles/hello"
+                    expect(f.read).to eq("/textfiles/hello")
                 end
             end
 
