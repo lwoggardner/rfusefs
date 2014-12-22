@@ -120,7 +120,21 @@ module FuseFS
     #   * {#file?}(from), {#can_write?}(to), {#can_delete?}(from) and if all true
     #   * {#read_file}(from), {#write_to}(to), {#delete}(from)
     # * otherwise reject the rename
+    #
+    # === Signals
+    #
+    # The filesystem can handle a signal by providing a `sig<name>` method. eg 'sighup'
+    # {#sigint} and {#sigterm} are handled by default to provide a means to exit the filesystem
     class FuseDir
+
+        # @!method sigint()
+        #   @return [void]
+        #   Handle the INT signal and exit the filesystem
+
+        # @!method sigterm()
+        #   @return [void]
+        #   Handle the TERM signal and exit the filesystem
+
         INIT_TIMES = Array.new(3,0)
 
         #   base,rest = split_path(path) 
@@ -306,6 +320,7 @@ module FuseFS
         # Called when the filesystem is unmounted
         # @return [void]
         def unmounted();end
+
 
     end
 

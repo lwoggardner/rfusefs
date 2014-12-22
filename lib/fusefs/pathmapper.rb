@@ -13,7 +13,7 @@ module FuseFS
     #
     class PathMapperFS < FuseDir
 
-        # Represents a mappted file or directory
+        # Represents a mapped file or directory
         class MNode
 
             # Merge extended attributes with the ones from the underlying file

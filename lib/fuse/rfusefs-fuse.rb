@@ -1,6 +1,7 @@
 # RFuseFS - FuseFS over RFuse
 require 'rfuse'
 require 'fcntl'
+require 'forwardable'
 
 module FuseFS
   #Which raw api should we use?

@@ -130,11 +130,12 @@ module FuseFS
         @fuse = Fuse.new(@fs,mountpoint,*args)
     end
 
-    # This is the main loop waiting on then executing filesystem operations from the
+    # This is the main loop waiting on, then executing, filesystem operations from the
     # kernel.
     #
     # Note: Running in a separate thread is generally not useful. In particular
-    #       you cannot access your filesystem using ruby File operations.
+    #       you cannot use Ruby File operations to access your filesystem from
+    #       within the ruby process that calls run.
     # @note RFuseFS extension
     def FuseFS.run
         @fuse.run()

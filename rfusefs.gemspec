@@ -20,9 +20,9 @@ Gem::Specification.new do |s|
   s.has_rdoc = 'yard'
   s_extra_rdoc_files = 'History.rdoc'
 
-  s.add_dependency("rfuse", "~> 1.1.0.RC0")
+  s.add_dependency("rfuse", "~> 1.1")
   s.add_development_dependency("rake")
-  s.add_development_dependency("rspec","~> 2")
+  s.add_development_dependency("rspec","~> 3")
   s.add_development_dependency("yard")
   s.add_development_dependency("redcarpet")
   s.add_development_dependency("sqlite3")
