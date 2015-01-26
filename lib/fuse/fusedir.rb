@@ -272,7 +272,7 @@ module FuseFS
         # @param [Integer] size
         # @param [Object] raw the filehandle returned by {#raw_open}
         # @abstract FuseFS api
-        # @return [void]
+        # @return [String] _sz_ bytes contents from file at path (or filehandle raw) starting at offset off
         def raw_read(path,offset,size,raw=nil);end
 
         # Write _sz_ bytes from file at path (or filehandle raw) starting at offset off
