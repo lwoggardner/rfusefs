@@ -1,0 +1,19 @@
+sudo: required
+dist: trusty
+language: ruby
+
+rvm:
+  - "2.1"
+
+before_install:
+  - sudo apt-get update -y
+  - sudo apt-get install -qq pkg-config fuse libfuse-dev
+  - sudo modprobe fuse
+  - sudo chmod 666 /dev/fuse
+  - sudo chown root:$USER /etc/fuse.conf
+
+script:
+  - bundle exec rake spec
+
+cache:
+  bundler: true
