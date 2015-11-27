@@ -4,6 +4,9 @@ language: ruby
 
 rvm:
   - "2.1"
+  - "2.2"
+  - "2.0"
+  - "1.9"
 
 before_install:
   - sudo apt-get update -y
