@@ -2,7 +2,7 @@ require 'spec_helper'
 require 'rfusefs'
 require 'tmpdir'
 require 'pathname'
-require 'hello'
+require_relative '../samples/hello'
 
 describe "Access Hello World sample from Ruby file operations" do
 

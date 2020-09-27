@@ -1,12 +1,39 @@
-sudo: required
-dist: trusty
+
+jobs:
+  include:
+    - os: linux
+      dist: xenial
+    - stage: Deploy
+      script: skip
+      before_install: []
+      install: skip
+      if: tag =~ /^v\d\.\d\.\d$/
+      deploy:
+        - provider: 'rubygems'
+          on:
+            repo: lwoggardner/rfusefs
+            tags: true
+          api_key:
+            secure: "Brdel8bzIiGQ4YNBLi0m3I/XLEMBx+ZYoKIhYfTG7sy4OlUQwbBUfByRqQBdvIBcLAEfJb1shz4yofdLop2bxeI3fFsesLWch3v480jgWlCsxBZoYhglUst/3NIKBKtICdQ9qkJM1qKm/GytYoDAnqosnEFxBpJaZ69GMe+3rYc="
+    - stage: 'PreRelease'
+      if: branch =~ ^rc
+      script: skip
+      before_install: []
+      install: skip
+      deploy:
+        - provider: 'rubygems'
+          on:
+            repo: lwoggardner/rfusefs
+            all_branches: true
+            condition: '$TRAVIS_BRANCH =~ ^rc'
+          api_key:
+            secure: "Brdel8bzIiGQ4YNBLi0m3I/XLEMBx+ZYoKIhYfTG7sy4OlUQwbBUfByRqQBdvIBcLAEfJb1shz4yofdLop2bxeI3fFsesLWch3v480jgWlCsxBZoYhglUst/3NIKBKtICdQ9qkJM1qKm/GytYoDAnqosnEFxBpJaZ69GMe+3rYc="
 language: ruby
 
 rvm:
-  - "2.1"
-  - "2.2"
-  - "2.0"
-  - "1.9"
+  - "2.6"
+  - "2.7"
+  - "2.5"
 
 before_install:
   - sudo apt-get update -y
@@ -14,9 +41,11 @@ before_install:
   - sudo modprobe fuse
   - sudo chmod 666 /dev/fuse
   - sudo chown root:$USER /etc/fuse.conf
+  - yes | gem update --system -N --force
+  - gem install bundler
 
 script:
-  - bundle exec rake spec
+  - bundle exec rake
 
 cache:
   bundler: true

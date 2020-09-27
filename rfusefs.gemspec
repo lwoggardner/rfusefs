@@ -5,6 +5,16 @@ require "rfusefs/version"
 Gem::Specification.new do |s|
   s.name        = "rfusefs"
   s.version     = RFuseFS::VERSION
+  # Only use the release version for actual deployment
+  if ENV['TRAVIS_BUILD_STAGE_NAME']&.downcase == 'prerelease'
+    s.version = "#{s.version}.#{ENV['TRAVIS_BRANCH']}.#{ENV['TRAVIS_BUILD_NUMBER']}"
+  elsif ENV['RFUSE_RELEASE'] || ENV['TRAVIS_BUILD_STAGE_NAME']&.downcase == 'deploy'
+    # leave as is
+  else
+    s.version= "#{s.version}.pre"
+  end
+
+  s.license     = 'MIT'
   s.platform    = Gem::Platform::RUBY
   s.authors     = ["Grant Gardner"]
   s.email       = ["grant@lastweekend.com.au"]
@@ -12,15 +22,13 @@ Gem::Specification.new do |s|
   s.summary     = %q{Filesystem in Ruby Userspace}
   s.description = %q{A more Ruby like way to write FUSE filesystems - inspired by (compatible with) FuseFS, implemented over RFuse}
 
-  s.files         = `git ls-files`.split("\n")
-  s.test_files    = `git ls-files -- {test,spec,spec-fusefs}/*`.split("\n")
-  s.executables   = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }
+  s.files         = Dir['lib/**.rb','*.md','LICENSE','.yardopts']
   s.require_paths = ["lib"]
 
-  s.has_rdoc = 'yard'
-  s_extra_rdoc_files = 'History.rdoc'
+  s.extra_rdoc_files = 'CHANGES.md'
+  s.required_ruby_version = '>= 2.5'
 
-  s.add_dependency("rfuse", "~> 1.1")
+  s.add_dependency("rfuse", "~> 1.2")
   s.add_development_dependency("rake")
   s.add_development_dependency("rspec","~> 3")
   s.add_development_dependency("yard")

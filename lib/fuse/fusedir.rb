@@ -283,7 +283,7 @@ module FuseFS
 
         # Sync buffered data to your filesystem
         # @param [String] path
-        # @param [Boolena] datasync only sync user data, not metadata
+        # @param [Boolean] datasync only sync user data, not metadata
         # @param [Object] raw the filehandle return by {#raw_open}
         def raw_sync(path,datasync,raw=nil);end
 
