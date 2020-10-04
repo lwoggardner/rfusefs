@@ -13,7 +13,7 @@ describe "a mounted FuseFS" do
         expect(mock_fs).to receive(:mounted)
         expect(mock_fs).to receive(:unmounted)
 
-        t = Thread.new { sleep 0.5 ; puts "exiting" ; FuseFS.exit }
+        t = Thread.new { sleep 2.0 ; puts "exiting" ; FuseFS.exit }
         FuseFS.start(mock_fs,mountpoint)
         t.join
     end
