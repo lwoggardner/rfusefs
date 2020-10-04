@@ -2,7 +2,7 @@
 jobs:
   include:
     - os: linux
-      dist: xenial
+      dist: trusty
     - stage: Deploy
       script: skip
       before_install: []
