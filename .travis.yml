@@ -2,7 +2,7 @@
 jobs:
   include:
     - os: linux
-      dist: trusty
+      dist: focal
     - stage: Deploy
       script: skip
       before_install: []
@@ -30,6 +30,7 @@ jobs:
             secure: "Brdel8bzIiGQ4YNBLi0m3I/XLEMBx+ZYoKIhYfTG7sy4OlUQwbBUfByRqQBdvIBcLAEfJb1shz4yofdLop2bxeI3fFsesLWch3v480jgWlCsxBZoYhglUst/3NIKBKtICdQ9qkJM1qKm/GytYoDAnqosnEFxBpJaZ69GMe+3rYc="
 language: ruby
 
+dist: focal
 rvm:
   - "2.6"
   - "2.7"
