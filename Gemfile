@@ -1,6 +1,8 @@
 source "http://bundler.rubygems.org"
 
-#gem 'rfuse', :path => "../rfuse"
+if Dir.exist?("../rfuse")
+  gem 'rfuse', :path => "../rfuse"
+end
 
 # Specify your gem's dependencies in rfusefs.gemspec
 gemspec
