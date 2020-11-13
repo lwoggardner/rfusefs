@@ -22,7 +22,7 @@ Gem::Specification.new do |s|
   s.summary     = %q{Filesystem in Ruby Userspace}
   s.description = %q{A more Ruby like way to write FUSE filesystems - inspired by (compatible with) FuseFS, implemented over RFuse}
 
-  s.files         = Dir['lib/**.rb','*.md','LICENSE','.yardopts']
+  s.files         = Dir['lib/**/*.rb','*.md','LICENSE','.yardopts']
   s.require_paths = ["lib"]
 
   s.extra_rdoc_files = 'CHANGES.md'
