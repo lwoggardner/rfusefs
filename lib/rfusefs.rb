@@ -79,7 +79,8 @@ module FuseFS
     def FuseFS.mount(root,mountpoint,*opts)
 
         pid = Kernel.fork do
-            FuseFS.start(root,mountpoint,*opts)
+            status = FuseFS.start(root,mountpoint,*opts)
+            Kernel.exit!(status)
         end
         @mounts[mountpoint] = pid
         pid
@@ -96,7 +97,7 @@ module FuseFS
         if (mountpoint)
             if @mounts.has_key?(mountpoint)
                 pid = @mounts[mountpoint]
-                Process.kill("TERM",pid)
+                Process.kill(:TERM,pid)
                 Process.waitpid(pid)
             else
                 raise "Unknown mountpoint #{mountpoint}"
