@@ -5,7 +5,7 @@
 
 This gem exists and is maintained for backwards compatibility only.
 
-Existing RFuse filesystems are recommended to refactor to depend directly on
+Existing RFuseFS filesystems are recommended to refactor to depend directly on
 [ffi_libfuse](http://rubygems.org/gems/ffi-libfuse) which supports Fuse 3 and Macfuse
 
 ---------------
