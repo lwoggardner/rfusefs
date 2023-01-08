@@ -2,6 +2,7 @@
 ---------------
   * require rfuse >= 2.0.0
   * require Ruby >= 2.7
+  * release via Github Actions
 
 1.1.1 / 2020-11
 ---------------
