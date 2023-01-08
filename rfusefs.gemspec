@@ -1,19 +1,10 @@
 # -*- encoding: utf-8 -*-
 $:.push File.expand_path("../lib", __FILE__)
-require "rfusefs/version"
+require_relative 'lib/rfusefs/gem_version'
 
 Gem::Specification.new do |s|
   s.name        = "rfusefs"
-  s.version     = RFuseFS::VERSION
-  # Only use the release version for actual deployment
-  if ENV['TRAVIS_BUILD_STAGE_NAME']&.downcase == 'prerelease'
-    s.version = "#{s.version}.#{ENV['TRAVIS_BRANCH']}.#{ENV['TRAVIS_BUILD_NUMBER']}"
-  elsif ENV['RFUSE_RELEASE'] || ENV['TRAVIS_BUILD_STAGE_NAME']&.downcase == 'deploy'
-    # leave as is
-  else
-    s.version= "#{s.version}.pre"
-  end
-
+  s.version     = RFuseFS::GEM_VERSION
   s.license     = 'MIT'
   s.platform    = Gem::Platform::RUBY
   s.authors     = ["Grant Gardner"]
@@ -25,10 +16,9 @@ Gem::Specification.new do |s|
   s.files         = Dir['lib/**/*.rb','*.md','LICENSE','.yardopts']
   s.require_paths = ["lib"]
 
-  s.extra_rdoc_files = 'CHANGES.md'
-  s.required_ruby_version = '>= 2.5'
+  s.required_ruby_version = '>= 2.7'
 
-  s.add_dependency("rfuse", "~> 1.2")
+  s.add_dependency("rfuse", "~> 2.0")
   s.add_development_dependency("rake")
   s.add_development_dependency("rspec","~> 3")
   s.add_development_dependency("yard")

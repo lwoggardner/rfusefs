@@ -1,8 +1,12 @@
-source "http://bundler.rubygems.org"
+source "http://rubygems.org"
 
-if Dir.exist?("../rfuse")
-  gem 'rfuse', :path => "../rfuse"
+LOCAL_GEM_PATH = ENV.fetch('LOCAL_GEMS', '..')
+
+def local_gem(gem_name, **options)
+  options[:path] = "#{LOCAL_GEM_PATH}/#{gem_name}" if Dir.exist?("#{LOCAL_GEM_PATH}/#{gem_name}")
+  gem gem_name, **options
 end
 
-# Specify your gem's dependencies in rfusefs.gemspec
+%w[ffi-libfuse rfuse].each { |g| local_gem g }
+
 gemspec

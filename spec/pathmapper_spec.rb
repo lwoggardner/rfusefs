@@ -33,10 +33,10 @@ class PMFixture
         @fs ||= FuseFS::PathMapperFS.new()
     end
 
-    def mount()
+    def mount(*options)
         return @mountpoint if @mountpoint
         @mountpoint = Pathname.new(Dir.mktmpdir("rfusefs_pathmapper_mnt"))
-        FuseFS.mount(fs,@mountpoint)
+        FuseFS.mount(fs,@mountpoint,*options)
         sleep(0.5)
         @mountpoint
     end
@@ -44,7 +44,7 @@ class PMFixture
     def cleanup
         if @mountpoint
             FuseFS.unmount(@mountpoint)
-            sleep(0.5)
+            sleep(0.1)
             FileUtils.rmdir(@mountpoint)
         end
         FileUtils.rm_r(@tmpdir)
@@ -57,7 +57,8 @@ describe FuseFS::PathMapperFS do
     let(:fixture) { PMFixture.new() }
     let(:pathmap_fs) { fixture.fs }
     let(:tmpdir) { fixture.tmpdir }
-    let(:mountpoint) { fixture.mount }
+    let(:options) { [] }
+    let(:mountpoint) { fixture.mount(*options) }
 
     before(:each) do
         fixture.pathmap("hello.txt","/textfiles/hello")
@@ -380,7 +381,7 @@ describe FuseFS::PathMapperFS do
 
         it "reads files" do
             hello_path = (mountpoint + "textfiles/hello")
-            hello_path.open do |f|
+            hello_path.open('r') do |f|
                 f.seek(2)
                 expect(f.read(3)).to eq("ext")
             end

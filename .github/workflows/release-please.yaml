@@ -1,0 +1,46 @@
+name: Release Please
+
+# This is only used on main branch
+# It is the ONLY thing that should update the changelog and version (which can be reviewed in the PR)
+on:
+  push:
+    branches: # Only run on main
+      - main
+      - release-please-action # For testing the action
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: GoogleCloudPlatform/release-please-action@v3
+        id: rp
+        with:
+          release-type: ruby
+          package-name: rfusefs
+          version-file: "lib/rfusefs/version.rb"
+          bump-minor-pre-major: true
+          default-branch: ${{ github.ref_name }} # ie raise PRs to the branch we are running against
+          bootstrap-sha: 4941bdd34f4724a148d4d83ff91431b50f7c7411
+      - run: echo "${JSON}"
+        env:
+          JSON: ${{ toJSON(steps.rp) }}
+    outputs:
+      json: ${{ toJSON(steps.rp.outputs) }}
+  patch-bump:
+    needs: release-please
+    runs-on: ubuntu-latest
+    if: ${{fromJSON(needs.release-please.outputs.json).release_created}}
+    steps:
+      - uses: actions/checkout@v3 # TODO: when we protect main, we'll need pass a PAT secret that allows direct push
+      - name: Patch Bump
+        run: ".github/scripts/patch_bump.sh ${FROM_VERSION} ${VERSION_FILE}"
+        env:
+          GITHUB_USER_NAME: "GitHub Action ${{github.workflow}}"
+          VERSION_FILE: 'lib/rfusefs/version.rb'
+          FROM_VERSION: "${{fromJSON(needs.release-please.outputs.json).version}}"
+  call-release:
+    needs: release-please
+    if: ${{fromJSON(needs.release-please.outputs.json).release_created}}
+    uses: ./.github/workflows/release.yaml
+    with:
+      ref:  "refs/tags/${{fromJSON(needs.release-please.outputs.json).tag_name}}"
+    secrets: inherit
