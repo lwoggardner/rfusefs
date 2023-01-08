@@ -15,17 +15,9 @@ RSpec::Core::RakeTask.new("spec:fusefs") do |t|
   t.pattern = 'spec-fusefs/**/*_spec.rb'
 end
 
-task :default => ["spec","spec:fusefs"]
+task :default => ['version',"spec","spec:fusefs"]
+
+require_relative 'lib/rfusefs/gem_version'
+FFI::Libfuse::GemHelper.install_tasks(main_branch: RFuseFS::MAIN_BRANCH, version: RFuseFS::VERSION)
 # vim: syntax=ruby
 
-RELEASE_BRANCH = 'master'
-desc 'Release RFuseFS Gem'
-task :release,[:options] => %i(clobber default) do |_t,args|
-  args.with_defaults(options: '--pretend')
-  branch = `git rev-parse --abbrev-ref HEAD`.strip
-  raise "Cannot release from #{branch}, only #{RELEASE_BRANCH}" unless branch == RELEASE_BRANCH
-  Bundler.with_unbundled_env do
-    raise "Tag failed" unless system({'RFUSE_RELEASE' => 'Y'},"gem tag -p #{args[:options]}".strip)
-    raise "Bump failed" unless system("gem bump -v patch -p #{args[:options]}".strip)
-  end
-end

@@ -20,7 +20,7 @@ RFuseFS is api compatible with FuseFS (0.7.0)
 
 ## REQUIREMENTS:
 
-*   FUSE (http://fuse.sourceforge.net) (>= 2.8)
+*   FUSE (http://fuse.sourceforge.net) (>= 2.8) or MACFuse
 *   Ruby (>= 2.7)
 *   rfuse (~> 2.0)
 
